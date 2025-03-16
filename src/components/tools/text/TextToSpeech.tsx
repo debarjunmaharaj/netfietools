@@ -16,7 +16,13 @@ import { useToast } from '@/components/ui/use-toast';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-import { generateSpeech, voices, models } from '@/utils/elevenLabsApi';
+import { 
+  generateSpeech, 
+  voices, 
+  models, 
+  languageCodes,
+  TextToSpeechParams
+} from '@/utils/googleTextToSpeechApi';
 
 type Language = 'english' | 'bengali';
 type Voice = 'male' | 'female';
@@ -30,8 +36,6 @@ export const TextToSpeech: React.FC = () => {
   const [selectedModel, setSelectedModel] = useState<string>(models[0].id);
   const [speed, setSpeed] = useState([1]);
   const [pitch, setPitch] = useState([1]);
-  const [stability, setStability] = useState([0.5]);
-  const [similarityBoost, setSimilarityBoost] = useState([0.75]);
   const [apiKey, setApiKey] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -71,7 +75,7 @@ export const TextToSpeech: React.FC = () => {
     if (!apiKey) {
       toast({
         title: "Error",
-        description: "Please enter your ElevenLabs API key.",
+        description: "Please enter your Google Cloud API key.",
         variant: "destructive",
       });
       return;
@@ -80,15 +84,20 @@ export const TextToSpeech: React.FC = () => {
     setIsGenerating(true);
     
     try {
-      const speechBlob = await generateSpeech(apiKey, {
+      // Prepare request parameters for Google TTS API
+      const params: TextToSpeechParams = {
         text,
-        voice_id: selectedVoice,
-        model_id: selectedModel,
-        voice_settings: {
-          stability: stability[0],
-          similarity_boost: similarityBoost[0],
-        },
-      });
+        voice: selectedVoice,
+        languageCode: languageCodes[language],
+        ssmlGender: voice === 'male' ? 'MALE' : 'FEMALE',
+        audioConfig: {
+          audioEncoding: 'MP3',
+          pitch: pitch[0],
+          speakingRate: speed[0]
+        }
+      };
+
+      const speechBlob = await generateSpeech(apiKey, params);
       
       if (speechBlob) {
         const url = URL.createObjectURL(speechBlob);
@@ -96,8 +105,7 @@ export const TextToSpeech: React.FC = () => {
         
         if (audioRef.current) {
           audioRef.current.src = url;
-          audioRef.current.playbackRate = speed[0];
-          // We'll handle pitch adjustment in a real implementation
+          audioRef.current.load();
         }
         
         toast({
@@ -166,12 +174,12 @@ export const TextToSpeech: React.FC = () => {
         
         <Card className="p-6 bg-white dark:bg-gray-800 shadow-md rounded-xl mb-6">
           <div className="flex flex-col space-y-4">
-            <Label htmlFor="api-key">ElevenLabs API Key</Label>
+            <Label htmlFor="api-key">Google Cloud API Key</Label>
             <div className="flex space-x-2">
               <Input
                 id="api-key"
                 type="password"
-                placeholder="Enter your ElevenLabs API key"
+                placeholder="Enter your Google Cloud API key"
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
                 className="flex-1"
@@ -182,7 +190,7 @@ export const TextToSpeech: React.FC = () => {
                 onClick={() => {
                   toast({
                     title: "API Key Info",
-                    description: "Get your API key from elevenlabs.io/account",
+                    description: "Get your API key from Google Cloud Console",
                   });
                 }}
               >
@@ -300,9 +308,9 @@ export const TextToSpeech: React.FC = () => {
                   </div>
                   <Slider
                     id="speed-slider"
-                    min={0.5}
-                    max={2}
-                    step={0.1}
+                    min={0.25}
+                    max={4.0}
+                    step={0.05}
                     value={speed}
                     onValueChange={setSpeed}
                   />
@@ -311,52 +319,16 @@ export const TextToSpeech: React.FC = () => {
                 <div>
                   <div className="flex justify-between mb-2">
                     <Label htmlFor="pitch-slider">Pitch</Label>
-                    <span className="text-sm text-gray-500">{pitch[0]}x</span>
+                    <span className="text-sm text-gray-500">{pitch[0]}</span>
                   </div>
                   <Slider
                     id="pitch-slider"
-                    min={0.5}
-                    max={2}
-                    step={0.1}
+                    min={-20.0}
+                    max={20.0}
+                    step={1.0}
                     value={pitch}
                     onValueChange={setPitch}
                   />
-                </div>
-
-                <div>
-                  <div className="flex justify-between mb-2">
-                    <Label htmlFor="stability-slider">Stability</Label>
-                    <span className="text-sm text-gray-500">{stability[0]}</span>
-                  </div>
-                  <Slider
-                    id="stability-slider"
-                    min={0}
-                    max={1}
-                    step={0.05}
-                    value={stability}
-                    onValueChange={setStability}
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Higher values make voice more consistent but may sound less natural
-                  </p>
-                </div>
-
-                <div>
-                  <div className="flex justify-between mb-2">
-                    <Label htmlFor="similarity-slider">Similarity Boost</Label>
-                    <span className="text-sm text-gray-500">{similarityBoost[0]}</span>
-                  </div>
-                  <Slider
-                    id="similarity-slider"
-                    min={0}
-                    max={1}
-                    step={0.05}
-                    value={similarityBoost}
-                    onValueChange={setSimilarityBoost}
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Higher values make voice sound more like the reference
-                  </p>
                 </div>
               </div>
             </Card>
