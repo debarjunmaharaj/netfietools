@@ -13,6 +13,8 @@ import ImageConverterPage from "./pages/ImageConverterPage";
 import TextToSpeechPage from "./pages/TextToSpeechPage";
 import TextSummarizerPage from "./pages/TextSummarizerPage";
 import PdfToolsPage from "./pages/PdfToolsPage";
+import AudioRecorderPage from "./pages/AudioRecorderPage";
+import AudioConverterPage from "./pages/AudioConverterPage";
 import Contact from "./pages/Contact";
 import About from "./pages/About";
 import NotFound from "./pages/NotFound";
@@ -35,6 +37,8 @@ const App = () => (
           <Route path="/text/text-to-speech" element={<TextToSpeechPage />} />
           <Route path="/text/summarizer" element={<TextSummarizerPage />} />
           <Route path="/text/pdf-tools" element={<PdfToolsPage />} />
+          <Route path="/audio/recorder" element={<AudioRecorderPage />} />
+          <Route path="/audio/converter" element={<AudioConverterPage />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/about" element={<About />} />
           <Route path="*" element={<NotFound />} />

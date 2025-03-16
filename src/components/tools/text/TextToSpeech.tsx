@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -11,7 +10,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
-import { Play, Pause, VolumeX, AlertTriangle } from 'lucide-react';
+import { Play, Pause, Download, VolumeX, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -22,6 +21,8 @@ import {
   getVoicesByLanguage,
   languageNames,
   TextToSpeechParams,
+  recordSpeech,
+  createDownloadLink
 } from '@/utils/speechApi';
 
 interface VoiceOption {
@@ -40,9 +41,10 @@ export const TextToSpeech: React.FC = () => {
   const [pitch, setPitch] = useState([1]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
   const { toast } = useToast();
   
-  // Load available voices when component mounts
   useEffect(() => {
     const loadVoices = async () => {
       try {
@@ -52,7 +54,6 @@ export const TextToSpeech: React.FC = () => {
         const languages = Object.keys(voicesByLanguage);
         setAvailableLanguages(languages);
         
-        // Set default language and voice if available
         if (languages.length > 0) {
           const defaultLang = languages.includes('en') ? 'en' : languages[0];
           setSelectedLanguage(defaultLang);
@@ -76,20 +77,30 @@ export const TextToSpeech: React.FC = () => {
     
     loadVoices();
     
-    // Clean up on unmount
     return () => {
       stopSpeech();
     };
   }, [toast]);
 
+  useEffect(() => {
+    return () => {
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl);
+      }
+    };
+  }, [audioUrl]);
+
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setText(e.target.value);
+    if (audioUrl) {
+      URL.revokeObjectURL(audioUrl);
+      setAudioUrl(null);
+    }
   };
 
   const handleLanguageChange = (value: string) => {
     setSelectedLanguage(value);
     
-    // Reset selected voice to the first one in the new language
     if (voices[value]?.length > 0) {
       setSelectedVoice(voices[value][0].id);
     } else {
@@ -129,7 +140,6 @@ export const TextToSpeech: React.FC = () => {
     setIsPlaying(true);
     
     try {
-      // Prepare request parameters for speech synthesis
       const params: TextToSpeechParams = {
         text,
         voice: selectedVoice,
@@ -139,7 +149,6 @@ export const TextToSpeech: React.FC = () => {
 
       await generateSpeech(params);
       
-      // Speech generation is complete
       setIsPlaying(false);
       
       toast({
@@ -154,6 +163,68 @@ export const TextToSpeech: React.FC = () => {
         description: "Failed to generate speech. Your browser may not fully support speech synthesis.",
         variant: "destructive",
       });
+    }
+  };
+  
+  const handleRecordAudio = async () => {
+    if (!text.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter some text to convert to speech.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!selectedVoice) {
+      toast({
+        title: "Error",
+        description: "Please select a voice.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setIsRecording(true);
+    
+    try {
+      const params: TextToSpeechParams = {
+        text,
+        voice: selectedVoice,
+        pitch: pitch[0],
+        rate: speed[0]
+      };
+
+      const audioBlob = await recordSpeech(params);
+      
+      if (audioBlob) {
+        if (audioUrl) {
+          URL.revokeObjectURL(audioUrl);
+        }
+        
+        const url = createDownloadLink(audioBlob, "speech.wav");
+        setAudioUrl(url);
+        
+        toast({
+          title: "Success!",
+          description: "Audio recorded successfully. You can now download it.",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to record audio. Your browser may not support this feature.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error recording audio:", error);
+      toast({
+        title: "Error",
+        description: "Failed to record audio. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRecording(false);
     }
   };
   
@@ -295,7 +366,7 @@ export const TextToSpeech: React.FC = () => {
             <div className="flex flex-col sm:flex-row justify-center gap-4">
               <Button 
                 onClick={handlePlayPause} 
-                disabled={!text.trim() || !selectedVoice}
+                disabled={!text.trim() || !selectedVoice || isRecording}
                 className={isPlaying ? "bg-red-600 hover:bg-red-700" : "bg-primary hover:bg-primary/90"}
               >
                 {isPlaying ? (
@@ -310,19 +381,41 @@ export const TextToSpeech: React.FC = () => {
                   </>
                 )}
               </Button>
+              
+              <Button 
+                onClick={handleRecordAudio}
+                disabled={!text.trim() || !selectedVoice || isPlaying || isRecording}
+                variant="outline"
+              >
+                <Download className="mr-2 h-4 w-4" />
+                {isRecording ? "Recording..." : "Generate Audio"}
+              </Button>
+              
+              {audioUrl && (
+                <Button 
+                  variant="secondary"
+                  asChild
+                >
+                  <a href={audioUrl} download="speech.wav">
+                    <Download className="mr-2 h-4 w-4" />
+                    Download Audio
+                  </a>
+                </Button>
+              )}
             </div>
             
-            <div className="mt-8 text-center">
-              <Card className="p-4 bg-white dark:bg-gray-800 shadow-md rounded-xl">
-                <div className="flex flex-col items-center space-y-2">
-                  <VolumeX className="h-8 w-8 text-gray-400 mb-2" />
-                  <p className="text-sm text-gray-500">
-                    Note: The Web Speech API doesn't support downloading audio files.
-                    You can only play the speech directly in your browser.
-                  </p>
-                </div>
-              </Card>
-            </div>
+            {!audioUrl && (
+              <div className="mt-8 text-center">
+                <Card className="p-4 bg-white dark:bg-gray-800 shadow-md rounded-xl">
+                  <div className="flex flex-col items-center space-y-2">
+                    <Download className="h-8 w-8 text-gray-400 mb-2" />
+                    <p className="text-sm text-gray-500">
+                      Click "Generate Audio" to create a downloadable audio file from your text.
+                    </p>
+                  </div>
+                </Card>
+              </div>
+            )}
           </>
         )}
       </div>

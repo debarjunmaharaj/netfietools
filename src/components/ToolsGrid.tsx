@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ImageIcon, FileType, FileAudio, FileText, MessageSquare, Crop, RefreshCw, ScanText, FileStack } from 'lucide-react';
+import { ImageIcon, FileType, FileAudio, FileText, MessageSquare, Crop, RefreshCw, ScanText, FileStack, Mic, VolumeX } from 'lucide-react';
 
 interface Tool {
   id: string;
@@ -52,6 +52,22 @@ const tools: Tool[] = [
     description: 'Merge, split, compress and convert PDF files',
     path: '/text/pdf-tools',
     category: 'text',
+  },
+  {
+    id: 'audio-recorder',
+    icon: <Mic size={24} />,
+    name: 'Audio Recorder',
+    description: 'Record high-quality audio using your microphone',
+    path: '/audio/recorder',
+    category: 'audio',
+  },
+  {
+    id: 'audio-converter',
+    icon: <RefreshCw size={24} />,
+    name: 'Audio Converter',
+    description: 'Convert audio files between MP3, WAV, OGG formats',
+    path: '/audio/converter',
+    category: 'audio',
   }
 ];
 

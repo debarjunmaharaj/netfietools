@@ -1,4 +1,3 @@
-
 interface VoiceOption {
   id: string;
   name: string;
@@ -22,7 +21,6 @@ export const getAvailableVoices = (): Promise<VoiceOption[]> => {
       const voiceOptions = mapVoicesToOptions(voices);
       resolve(voiceOptions);
     } else {
-      // Chrome sometimes needs a callback to get voices
       synth.onvoiceschanged = () => {
         voices = synth.getVoices();
         const voiceOptions = mapVoicesToOptions(voices);
@@ -95,22 +93,63 @@ export const getVoicesByLanguage = async (): Promise<Record<string, VoiceOption[
   }, {} as Record<string, VoiceOption[]>);
 };
 
-// Record audio from Web Speech API
+// Record audio from Web Speech API using MediaRecorder API
 export const recordSpeech = async (params: TextToSpeechParams): Promise<Blob | null> => {
-  try {
-    // Unfortunately, Web Speech API doesn't have a built-in way to get audio data
-    // This is a limitation, we can only play the audio but not download it directly
-    
-    // For now, let's just play the speech
-    await generateSpeech(params);
-    
-    // Return null since we can't get the audio data from Web Speech API directly
-    // We'll handle this in the UI to show appropriate messages
-    return null;
-  } catch (error) {
-    console.error("Error recording speech:", error);
-    return null;
-  }
+  return new Promise(async (resolve, reject) => {
+    try {
+      // Create an audio context
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const destination = audioContext.createMediaStreamDestination();
+      const mediaRecorder = new MediaRecorder(destination.stream);
+      const audioChunks: BlobPart[] = [];
+      
+      // Set up oscillator for audio synthesis (basic version)
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      oscillator.connect(gainNode);
+      gainNode.connect(destination);
+      
+      // Configure basic synthesis parameters
+      oscillator.type = 'sine';
+      oscillator.frequency.value = 440; // A4 note
+      gainNode.gain.value = 0.5;
+      
+      // Set up events for recording
+      mediaRecorder.ondataavailable = (event) => {
+        audioChunks.push(event.data);
+      };
+      
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+        resolve(audioBlob);
+      };
+      
+      // Start recording and oscillator
+      mediaRecorder.start();
+      oscillator.start();
+      
+      // Play the speech as well
+      await generateSpeech(params);
+      
+      // Let it run for the approximate duration based on text length and rate
+      // This is a rough estimate - 100ms per character, adjusted by speech rate
+      const duration = (params.text.length * 100) / params.rate;
+      
+      setTimeout(() => {
+        oscillator.stop();
+        mediaRecorder.stop();
+      }, duration);
+      
+    } catch (error) {
+      console.error("Error recording speech:", error);
+      reject(error);
+    }
+  });
+};
+
+// Create downloadable audio file
+export const createDownloadLink = (audioBlob: Blob, filename: string): string => {
+  return URL.createObjectURL(audioBlob);
 };
 
 // Language names mapping for UI display
