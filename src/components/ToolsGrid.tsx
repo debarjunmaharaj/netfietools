@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ImageIcon, FileType, FileAudio, FileText, MessageSquare, Crop, RefreshCw } from 'lucide-react';
+import { ImageIcon, FileType, FileAudio, FileText, MessageSquare, Crop, RefreshCw, ScanText, FileStack } from 'lucide-react';
 
 interface Tool {
   id: string;
@@ -35,6 +35,22 @@ const tools: Tool[] = [
     name: 'Text to Speech',
     description: 'Convert text to natural speech in English and Bengali',
     path: '/text/text-to-speech',
+    category: 'text',
+  },
+  {
+    id: 'text-summarizer',
+    icon: <ScanText size={24} />,
+    name: 'Text Summarizer',
+    description: 'Automatically summarize long articles and documents',
+    path: '/text/summarizer',
+    category: 'text',
+  },
+  {
+    id: 'pdf-tools',
+    icon: <FileStack size={24} />,
+    name: 'PDF Tools',
+    description: 'Merge, split, compress and convert PDF files',
+    path: '/text/pdf-tools',
     category: 'text',
   }
 ];
