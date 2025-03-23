@@ -6,7 +6,9 @@ import { ImageEditor } from '@/components/tools/image/ImageEditor';
 const ImageEditorPage = () => {
   return (
     <Layout>
-      <ImageEditor />
+      <div className="pb-8">
+        <ImageEditor />
+      </div>
     </Layout>
   );
 };
