@@ -10,6 +10,7 @@ import AudioTools from "./pages/AudioTools";
 import TextTools from "./pages/TextTools";
 import BackgroundRemoverPage from "./pages/BackgroundRemoverPage";
 import ImageConverterPage from "./pages/ImageConverterPage";
+import ImageEditorPage from "./pages/ImageEditorPage";
 import TextToSpeechPage from "./pages/TextToSpeechPage";
 import TextSummarizerPage from "./pages/TextSummarizerPage";
 import PdfToolsPage from "./pages/PdfToolsPage";
@@ -34,6 +35,7 @@ const App = () => (
           <Route path="/text" element={<TextTools />} />
           <Route path="/image/background-remover" element={<BackgroundRemoverPage />} />
           <Route path="/image/converter" element={<ImageConverterPage />} />
+          <Route path="/image/editor" element={<ImageEditorPage />} />
           <Route path="/text/text-to-speech" element={<TextToSpeechPage />} />
           <Route path="/text/summarizer" element={<TextSummarizerPage />} />
           <Route path="/text/pdf-tools" element={<PdfToolsPage />} />

@@ -10,7 +10,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
-import { Play, Pause, Download, VolumeX, AlertTriangle } from 'lucide-react';
+import { Play, Pause, Download, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -91,10 +91,19 @@ export const TextToSpeech: React.FC = () => {
   }, [audioUrl]);
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setText(e.target.value);
-    if (audioUrl) {
-      URL.revokeObjectURL(audioUrl);
-      setAudioUrl(null);
+    const newText = e.target.value;
+    if (newText.length <= 10000) {
+      setText(newText);
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl);
+        setAudioUrl(null);
+      }
+    } else {
+      toast({
+        title: "Character limit reached",
+        description: "The maximum allowed text length is 10,000 characters.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -270,10 +279,13 @@ export const TextToSpeech: React.FC = () => {
                 <Card className="p-6 bg-white dark:bg-gray-800 shadow-md rounded-xl">
                   <div className="space-y-4">
                     <div>
-                      <Label htmlFor="text-input">Enter text to convert to speech</Label>
+                      <div className="flex justify-between items-center">
+                        <Label htmlFor="text-input">Enter text to convert to speech</Label>
+                        <span className="text-sm text-gray-500">{text.length}/10000</span>
+                      </div>
                       <Textarea
                         id="text-input"
-                        placeholder="Type or paste your text here..."
+                        placeholder="Type or paste your text here (up to 10,000 characters)..."
                         value={text}
                         onChange={handleTextChange}
                         className="min-h-[200px] mt-2"

@@ -1,7 +1,20 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ImageIcon, FileType, FileAudio, FileText, MessageSquare, Crop, RefreshCw, ScanText, FileStack, Mic, VolumeX } from 'lucide-react';
+import { 
+  ImageIcon, 
+  FileType, 
+  FileAudio, 
+  FileText, 
+  MessageSquare, 
+  Crop, 
+  RefreshCw, 
+  ScanText, 
+  FileStack, 
+  Mic, 
+  VolumeX, 
+  Edit3 
+} from 'lucide-react';
 
 interface Tool {
   id: string;
@@ -19,6 +32,14 @@ const tools: Tool[] = [
     name: 'Background Remover',
     description: 'Remove backgrounds from images with one click',
     path: '/image/background-remover',
+    category: 'image',
+  },
+  {
+    id: 'image-editor',
+    icon: <Edit3 size={24} />,
+    name: 'Image Editor',
+    description: 'Edit images with a powerful Photoshop-like editor',
+    path: '/image/editor',
     category: 'image',
   },
   {

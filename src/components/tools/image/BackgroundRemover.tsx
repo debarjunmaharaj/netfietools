@@ -4,11 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { UploadCloud, Download, Loader2 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { removeBackground, loadImage } from '@/utils/imageUtils';
 
 export const BackgroundRemover: React.FC = () => {
   const [originalImage, setOriginalImage] = useState<string | null>(null);
   const [processedImage, setProcessedImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -25,11 +27,13 @@ export const BackgroundRemover: React.FC = () => {
       return;
     }
 
+    setIsLoading(true);
     const reader = new FileReader();
     reader.onload = (event) => {
       if (event.target?.result) {
         setOriginalImage(event.target.result as string);
         setProcessedImage(null);
+        setIsLoading(false);
       }
     };
     reader.readAsDataURL(file);
@@ -41,11 +45,20 @@ export const BackgroundRemover: React.FC = () => {
     setIsProcessing(true);
     
     try {
-      // Simulate processing for now - in future versions we'll implement actual background removal
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Create an image element from the original image
+      const img = new Image();
+      img.src = originalImage;
       
-      // For demo purposes, just return the original image
-      setProcessedImage(originalImage);
+      await new Promise<void>((resolve) => {
+        img.onload = () => resolve();
+      });
+      
+      // Process the image to remove background
+      const blob = await removeBackground(img);
+      
+      // Create a URL for the processed image
+      const url = URL.createObjectURL(blob);
+      setProcessedImage(url);
       
       toast({
         title: "Success!",
@@ -78,6 +91,40 @@ export const BackgroundRemover: React.FC = () => {
     fileInputRef.current?.click();
   };
 
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const file = e.dataTransfer.files[0];
+      
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: "Error",
+          description: "Please select an image file.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      setIsLoading(true);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          setOriginalImage(event.target.result as string);
+          setProcessedImage(null);
+          setIsLoading(false);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-4xl mx-auto">
@@ -89,7 +136,12 @@ export const BackgroundRemover: React.FC = () => {
         </div>
 
         <Card className="p-6 bg-white dark:bg-gray-800 shadow-md rounded-xl mb-8">
-          <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg cursor-pointer transition-colors hover:border-primary" onClick={triggerFileInput}>
+          <div 
+            className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg cursor-pointer transition-colors hover:border-primary" 
+            onClick={triggerFileInput}
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+          >
             <input
               type="file"
               className="hidden"
@@ -97,7 +149,11 @@ export const BackgroundRemover: React.FC = () => {
               onChange={handleFileChange}
               ref={fileInputRef}
             />
-            <UploadCloud className="w-16 h-16 text-gray-400 mb-4" />
+            {isLoading ? (
+              <Loader2 className="w-16 h-16 text-gray-400 mb-4 animate-spin" />
+            ) : (
+              <UploadCloud className="w-16 h-16 text-gray-400 mb-4" />
+            )}
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
               Click to upload or drag and drop
             </p>
