@@ -35,6 +35,11 @@ export const Footer: React.FC = () => {
                   Image Converter
                 </Link>
               </li>
+              <li>
+                <Link to="/image/editor" className="text-gray-600 dark:text-gray-400 hover:text-primary transition-colors text-sm">
+                  Image Editor
+                </Link>
+              </li>
             </ul>
           </div>
           
@@ -43,6 +48,16 @@ export const Footer: React.FC = () => {
               Audio Tools
             </h3>
             <ul className="space-y-2">
+              <li>
+                <Link to="/audio/recorder" className="text-gray-600 dark:text-gray-400 hover:text-primary transition-colors text-sm">
+                  Audio Recorder
+                </Link>
+              </li>
+              <li>
+                <Link to="/audio/converter" className="text-gray-600 dark:text-gray-400 hover:text-primary transition-colors text-sm">
+                  Audio Converter
+                </Link>
+              </li>
               <li>
                 <Link to="/text/text-to-speech" className="text-gray-600 dark:text-gray-400 hover:text-primary transition-colors text-sm">
                   Text to Speech

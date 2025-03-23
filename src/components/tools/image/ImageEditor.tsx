@@ -1,515 +1,405 @@
 
-import React, { useEffect, useRef, useState } from 'react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Slider } from '@/components/ui/slider';
-import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  UploadCloud,
-  Download,
-  Loader2,
-  Crop,
-  RotateCcw,
-  BrightnessIcon,
-  Contrast,
-  Image,
-  Eraser,
-  PaintBucket,
-  Undo,
-  Redo,
-  Shuffle,
-  Pencil,
-  Type,
-  Save,
+import React, { useState, useRef, useEffect } from 'react';
+import { 
+  Crop, 
+  Image as ImageIcon, 
+  Type, 
+  Download, 
+  Brush, 
+  Square, 
+  Circle, 
+  Trash2, 
+  Undo, 
+  Redo, 
+  Sliders, 
+  Sun,
+  Copy
 } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
-import { Canvas, Rect, Circle, Path, IObjectOptions, Image as FabricImage } from 'fabric';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Slider } from '@/components/ui/slider';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { fabric } from 'fabric';
+import { useToast } from '@/hooks/use-toast';
+import { Separator } from '@/components/ui/separator';
 
 export const ImageEditor: React.FC = () => {
-  const [originalImage, setOriginalImage] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [activeTool, setActiveTool] = useState<string>('select');
-  const [activeColor, setActiveColor] = useState<string>('#000000');
-  const [brightness, setBrightness] = useState<number[]>([100]);
-  const [contrast, setContrast] = useState<number[]>([100]);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const fabricCanvasRef = useRef<Canvas | null>(null);
   const { toast } = useToast();
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
+  const [activeObject, setActiveObject] = useState<fabric.Object | null>(null);
+  const [brightness, setBrightness] = useState<number>(100);
+  const [contrast, setContrast] = useState<number>(100);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [hasImage, setHasImage] = useState(false);
+  const [undoStack, setUndoStack] = useState<string[]>([]);
+  const [redoStack, setRedoStack] = useState<string[]>([]);
 
   useEffect(() => {
-    if (canvasRef.current && !fabricCanvasRef.current) {
-      fabricCanvasRef.current = new Canvas(canvasRef.current, {
-        isDrawingMode: false,
+    if (canvasRef.current) {
+      fabricCanvasRef.current = new fabric.Canvas(canvasRef.current, {
         backgroundColor: '#f0f0f0',
+        width: 800,
+        height: 600,
       });
       
-      // Set default canvas size
-      fabricCanvasRef.current.setDimensions({
-        width: 800,
-        height: 600
-      });
-    }
-
-    return () => {
-      if (fabricCanvasRef.current) {
-        fabricCanvasRef.current.dispose();
-        fabricCanvasRef.current = null;
-      }
-    };
-  }, []);
-
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-      toast({
-        title: "Error",
-        description: "Please select an image file.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        if (event.target?.result && fabricCanvasRef.current) {
-          const imgSrc = event.target.result.toString();
-          setOriginalImage(imgSrc);
-          
-          // Clear canvas
-          fabricCanvasRef.current.clear();
-          
-          // Load image onto canvas
-          const img = await new Promise<HTMLImageElement>((resolve) => {
-            const image = new Image();
-            image.src = imgSrc;
-            image.onload = () => resolve(image);
-          });
-          
-          const fabricImage = new FabricImage(img);
-          
-          // Scale image to fit canvas
-          const canvasWidth = fabricCanvasRef.current.getWidth();
-          const canvasHeight = fabricCanvasRef.current.getHeight();
-          
-          const scale = Math.min(
-            canvasWidth / img.width,
-            canvasHeight / img.height
-          ) * 0.8;
-          
-          fabricImage.scale(scale);
-          
-          // Center image
-          fabricImage.set({
-            left: canvasWidth / 2 - (img.width * scale) / 2,
-            top: canvasHeight / 2 - (img.height * scale) / 2,
-          });
-          
-          fabricCanvasRef.current.add(fabricImage);
-          fabricCanvasRef.current.renderAll();
-          setIsLoading(false);
+      fabricCanvasRef.current.on('object:modified', saveState);
+      fabricCanvasRef.current.on('object:added', saveState);
+      fabricCanvasRef.current.on('object:removed', saveState);
+      
+      // Initial state
+      saveState();
+      
+      return () => {
+        if (fabricCanvasRef.current) {
+          fabricCanvasRef.current.dispose();
         }
       };
-      reader.readAsDataURL(file);
-    } catch (error) {
-      console.error('Error loading image:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load image. Please try again.",
-        variant: "destructive",
+    }
+  }, []);
+
+  const saveState = () => {
+    if (fabricCanvasRef.current) {
+      const json = JSON.stringify(fabricCanvasRef.current.toJSON());
+      setUndoStack(prev => [...prev, json]);
+      setRedoStack([]);
+    }
+  };
+
+  const undo = () => {
+    if (undoStack.length > 1 && fabricCanvasRef.current) {
+      const currentState = undoStack[undoStack.length - 1];
+      const previousState = undoStack[undoStack.length - 2];
+      
+      setRedoStack(prev => [...prev, currentState]);
+      setUndoStack(prev => prev.slice(0, -1));
+      
+      fabricCanvasRef.current.loadFromJSON(previousState, () => {
+        fabricCanvasRef.current?.renderAll();
       });
-      setIsLoading(false);
     }
   };
 
-  const handleToolClick = (tool: string) => {
-    setActiveTool(tool);
-    
-    if (!fabricCanvasRef.current) return;
-    
-    fabricCanvasRef.current.isDrawingMode = tool === 'draw';
-    
-    if (tool === 'draw' && fabricCanvasRef.current.freeDrawingBrush) {
-      fabricCanvasRef.current.freeDrawingBrush.color = activeColor;
-      fabricCanvasRef.current.freeDrawingBrush.width = 3;
+  const redo = () => {
+    if (redoStack.length > 0 && fabricCanvasRef.current) {
+      const nextState = redoStack[redoStack.length - 1];
+      
+      setUndoStack(prev => [...prev, nextState]);
+      setRedoStack(prev => prev.slice(0, -1));
+      
+      fabricCanvasRef.current.loadFromJSON(nextState, () => {
+        fabricCanvasRef.current?.renderAll();
+      });
     }
   };
 
-  const handleAddShape = (shape: 'circle' | 'rectangle') => {
-    if (!fabricCanvasRef.current) return;
-    
-    const options: IObjectOptions = {
-      left: 100,
-      top: 100,
-      fill: activeColor,
-    };
-    
-    if (shape === 'rectangle') {
-      const rect = new Rect({
-        ...options,
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0] && fabricCanvasRef.current) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      
+      reader.onload = (event) => {
+        if (event.target?.result && fabricCanvasRef.current) {
+          fabric.Image.fromURL(event.target.result.toString(), (img) => {
+            // Scale image to fit canvas while maintaining aspect ratio
+            const canvas = fabricCanvasRef.current;
+            if (!canvas) return;
+            
+            const canvasWidth = canvas.width || 800;
+            const canvasHeight = canvas.height || 600;
+            
+            const imgWidth = img.width || 0;
+            const imgHeight = img.height || 0;
+            
+            const scaleX = canvasWidth / imgWidth;
+            const scaleY = canvasHeight / imgHeight;
+            const scale = Math.min(scaleX, scaleY);
+            
+            img.scale(scale);
+            img.set({
+              originX: 'center',
+              originY: 'center',
+              left: canvasWidth / 2,
+              top: canvasHeight / 2,
+            });
+            
+            // Clear existing canvas
+            canvas.clear();
+            canvas.add(img);
+            setHasImage(true);
+            saveState();
+          });
+        }
+      };
+      
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const addText = () => {
+    if (fabricCanvasRef.current) {
+      const text = new fabric.IText('Double-click to edit', {
+        left: 200,
+        top: 200,
+        fill: '#000000',
+        fontFamily: 'Arial',
+      });
+      
+      fabricCanvasRef.current.add(text);
+      fabricCanvasRef.current.setActiveObject(text);
+      saveState();
+    }
+  };
+
+  const addRectangle = () => {
+    if (fabricCanvasRef.current) {
+      const rect = new fabric.Rect({
+        left: 200,
+        top: 200,
+        fill: '#4ade80',
         width: 100,
         height: 100,
+        opacity: 0.7,
       });
+      
       fabricCanvasRef.current.add(rect);
-    } else if (shape === 'circle') {
-      const circle = new Circle({
-        ...options,
+      fabricCanvasRef.current.setActiveObject(rect);
+      saveState();
+    }
+  };
+
+  const addCircle = () => {
+    if (fabricCanvasRef.current) {
+      const circle = new fabric.Circle({
+        left: 200,
+        top: 200,
+        fill: '#60a5fa',
         radius: 50,
+        opacity: 0.7,
       });
+      
       fabricCanvasRef.current.add(circle);
+      fabricCanvasRef.current.setActiveObject(circle);
+      saveState();
     }
-    
-    fabricCanvasRef.current.renderAll();
   };
 
-  const handleUndo = () => {
+  const drawMode = () => {
     if (fabricCanvasRef.current) {
-      // Simple undo (not ideal, but works for demo)
-      const objects = fabricCanvasRef.current.getObjects();
-      if (objects.length > 0) {
-        fabricCanvasRef.current.remove(objects[objects.length - 1]);
+      fabricCanvasRef.current.isDrawingMode = !fabricCanvasRef.current.isDrawingMode;
+      
+      if (fabricCanvasRef.current.isDrawingMode) {
+        fabricCanvasRef.current.freeDrawingBrush.width = 5;
+        fabricCanvasRef.current.freeDrawingBrush.color = '#000000';
+        
+        toast({
+          title: "Draw Mode Activated",
+          description: "Click and drag to draw on the canvas",
+        });
+      } else {
+        toast({
+          title: "Draw Mode Deactivated",
+          description: "Selection mode active",
+        });
       }
     }
   };
 
-  const handleClearCanvas = () => {
-    if (fabricCanvasRef.current) {
-      fabricCanvasRef.current.clear();
-      if (originalImage) {
-        // Reload the original image
-        handleReloadImage();
-      }
-    }
-  };
-
-  const handleReloadImage = async () => {
-    if (!originalImage || !fabricCanvasRef.current) return;
-    
-    fabricCanvasRef.current.clear();
-    
-    try {
-      const img = await new Promise<HTMLImageElement>((resolve) => {
-        const image = new Image();
-        image.src = originalImage;
-        image.onload = () => resolve(image);
-      });
-      
-      const fabricImage = new FabricImage(img);
-      
-      // Scale image to fit canvas
-      const canvasWidth = fabricCanvasRef.current.getWidth();
-      const canvasHeight = fabricCanvasRef.current.getHeight();
-      
-      const scale = Math.min(
-        canvasWidth / img.width,
-        canvasHeight / img.height
-      ) * 0.8;
-      
-      fabricImage.scale(scale);
-      
-      // Center image
-      fabricImage.set({
-        left: canvasWidth / 2 - (img.width * scale) / 2,
-        top: canvasHeight / 2 - (img.height * scale) / 2,
-      });
-      
-      fabricCanvasRef.current.add(fabricImage);
-      fabricCanvasRef.current.renderAll();
-    } catch (error) {
-      console.error('Error reloading image:', error);
-    }
-  };
-
-  const handleDownload = () => {
-    if (!fabricCanvasRef.current) return;
-    
-    try {
-      const dataURL = fabricCanvasRef.current.toDataURL({
-        format: 'png',
-        quality: 0.8,
-      });
-      
-      const link = document.createElement('a');
-      link.href = dataURL;
-      link.download = 'edited-image.png';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      toast({
-        title: "Success!",
-        description: "Image downloaded successfully.",
-      });
-    } catch (error) {
-      console.error('Error downloading image:', error);
-      toast({
-        title: "Error",
-        description: "Failed to download image. Please try again.",
-        variant: "destructive",
-      });
+  const deleteSelectedObject = () => {
+    if (fabricCanvasRef.current && fabricCanvasRef.current.getActiveObject()) {
+      fabricCanvasRef.current.remove(fabricCanvasRef.current.getActiveObject());
+      saveState();
     }
   };
 
   const applyFilters = () => {
-    if (!fabricCanvasRef.current) return;
-    
-    const objects = fabricCanvasRef.current.getObjects();
-    const imageObject = objects.find(obj => obj instanceof FabricImage);
-    
-    if (imageObject && imageObject instanceof FabricImage) {
-      // Reset filters first
-      imageObject.filters = [];
-      
-      // Apply brightness filter
-      if (brightness[0] !== 100) {
-        imageObject.filters.push({
-          type: 'brightness',
-          brightness: (brightness[0] - 100) / 100
-        } as any);
-      }
-      
-      // Apply contrast filter
-      if (contrast[0] !== 100) {
-        imageObject.filters.push({
-          type: 'contrast',
-          contrast: contrast[0] / 100
-        } as any);
-      }
-      
-      imageObject.applyFilters();
+    if (fabricCanvasRef.current) {
+      const objects = fabricCanvasRef.current.getObjects();
+      objects.forEach(obj => {
+        if (obj instanceof fabric.Image) {
+          const image = obj as fabric.Image;
+          image.filters = [
+            new fabric.Image.filters.Brightness({ brightness: (brightness - 100) / 100 }),
+            new fabric.Image.filters.Contrast({ contrast: contrast / 100 })
+          ];
+          image.applyFilters();
+        }
+      });
       fabricCanvasRef.current.renderAll();
     }
   };
 
-  useEffect(() => {
-    applyFilters();
-  }, [brightness, contrast]);
+  const downloadImage = () => {
+    if (fabricCanvasRef.current && hasImage) {
+      const dataURL = fabricCanvasRef.current.toDataURL({
+        format: 'png',
+        quality: 1,
+        multiplier: 1
+      });
+      const link = document.createElement('a');
+      link.download = 'edited-image.png';
+      link.href = dataURL;
+      link.click();
+      
+      toast({
+        title: "Image Downloaded",
+        description: "Your edited image has been downloaded",
+      });
+    } else {
+      toast({
+        title: "No Image to Download",
+        description: "Please upload an image first",
+        variant: "destructive",
+      });
+    }
+  };
 
-  const triggerFileInput = () => {
-    fileInputRef.current?.click();
+  const duplicateSelectedObject = () => {
+    if (fabricCanvasRef.current && fabricCanvasRef.current.getActiveObject()) {
+      const activeObject = fabricCanvasRef.current.getActiveObject();
+      
+      if (activeObject) {
+        activeObject.clone((cloned: fabric.Object) => {
+          cloned.set({
+            left: (activeObject.left || 0) + 20,
+            top: (activeObject.top || 0) + 20,
+            evented: true,
+          });
+          
+          fabricCanvasRef.current?.add(cloned);
+          fabricCanvasRef.current?.setActiveObject(cloned);
+          saveState();
+        });
+      }
+    }
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold mb-2 gradient-text">Image Editor</h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Edit your images with powerful tools similar to Photoshop
-          </p>
-        </div>
-
-        {!originalImage ? (
-          <Card className="p-6 bg-white dark:bg-gray-800 shadow-md rounded-xl mb-8">
-            <div 
-              className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg cursor-pointer transition-colors hover:border-primary" 
-              onClick={triggerFileInput}
-            >
-              <input
-                type="file"
-                className="hidden"
-                accept="image/*"
-                onChange={handleFileChange}
-                ref={fileInputRef}
-              />
-              {isLoading ? (
-                <Loader2 className="w-16 h-16 text-gray-400 mb-4 animate-spin" />
-              ) : (
-                <UploadCloud className="w-16 h-16 text-gray-400 mb-4" />
-              )}
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                Click to upload or drag and drop
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-500">
-                Supports JPG, PNG, WEBP
-              </p>
-            </div>
-          </Card>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            <div className="lg:col-span-1">
-              <Card className="p-4 bg-white dark:bg-gray-800 shadow-md rounded-xl">
-                <Tabs defaultValue="tools">
-                  <TabsList className="w-full">
-                    <TabsTrigger value="tools" className="flex-1">Tools</TabsTrigger>
-                    <TabsTrigger value="adjust" className="flex-1">Adjust</TabsTrigger>
-                  </TabsList>
-                  
-                  <TabsContent value="tools" className="mt-4">
-                    <div className="grid grid-cols-3 gap-2">
-                      <Button
-                        variant={activeTool === 'select' ? 'default' : 'outline'}
-                        className="p-2 h-auto"
-                        onClick={() => handleToolClick('select')}
-                      >
-                        <div className="flex flex-col items-center">
-                          <Image size={20} />
-                          <span className="text-xs mt-1">Select</span>
-                        </div>
-                      </Button>
-                      <Button
-                        variant={activeTool === 'draw' ? 'default' : 'outline'}
-                        className="p-2 h-auto"
-                        onClick={() => handleToolClick('draw')}
-                      >
-                        <div className="flex flex-col items-center">
-                          <Pencil size={20} />
-                          <span className="text-xs mt-1">Draw</span>
-                        </div>
-                      </Button>
-                      <Button
-                        variant={activeTool === 'eraser' ? 'default' : 'outline'}
-                        className="p-2 h-auto"
-                        onClick={() => handleToolClick('eraser')}
-                      >
-                        <div className="flex flex-col items-center">
-                          <Eraser size={20} />
-                          <span className="text-xs mt-1">Erase</span>
-                        </div>
-                      </Button>
-                      <Button
-                        variant={activeTool === 'text' ? 'default' : 'outline'}
-                        className="p-2 h-auto"
-                        onClick={() => handleToolClick('text')}
-                      >
-                        <div className="flex flex-col items-center">
-                          <Type size={20} />
-                          <span className="text-xs mt-1">Text</span>
-                        </div>
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="p-2 h-auto"
-                        onClick={() => handleAddShape('rectangle')}
-                      >
-                        <div className="flex flex-col items-center">
-                          <div className="w-5 h-5 border-2 border-current"></div>
-                          <span className="text-xs mt-1">Rect</span>
-                        </div>
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="p-2 h-auto"
-                        onClick={() => handleAddShape('circle')}
-                      >
-                        <div className="flex flex-col items-center">
-                          <div className="w-5 h-5 rounded-full border-2 border-current"></div>
-                          <span className="text-xs mt-1">Circle</span>
-                        </div>
-                      </Button>
-                    </div>
-                    
-                    <div className="mt-4">
-                      <Label htmlFor="color-picker">Color</Label>
-                      <div className="flex mt-2">
-                        <input
-                          id="color-picker"
-                          type="color"
-                          value={activeColor}
-                          onChange={(e) => setActiveColor(e.target.value)}
-                          className="w-full h-10 cursor-pointer rounded-md"
-                        />
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-2 mt-4">
-                      <Button
-                        variant="outline"
-                        className="w-full"
-                        onClick={handleUndo}
-                      >
-                        <Undo size={18} className="mr-1" />
-                        Undo
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="w-full"
-                        onClick={handleClearCanvas}
-                      >
-                        <Eraser size={18} className="mr-1" />
-                        Clear
-                      </Button>
-                    </div>
-                  </TabsContent>
-                  
-                  <TabsContent value="adjust" className="space-y-4 mt-4">
-                    <div>
-                      <div className="flex justify-between mb-2">
-                        <Label htmlFor="brightness-slider">Brightness</Label>
-                        <span className="text-sm text-gray-500">{brightness[0]}%</span>
-                      </div>
-                      <Slider
-                        id="brightness-slider"
-                        min={0}
-                        max={200}
-                        step={1}
-                        value={brightness}
-                        onValueChange={setBrightness}
-                      />
-                    </div>
-                    
-                    <div>
-                      <div className="flex justify-between mb-2">
-                        <Label htmlFor="contrast-slider">Contrast</Label>
-                        <span className="text-sm text-gray-500">{contrast[0]}%</span>
-                      </div>
-                      <Slider
-                        id="contrast-slider"
-                        min={0}
-                        max={200}
-                        step={1}
-                        value={contrast}
-                        onValueChange={setContrast}
-                      />
-                    </div>
-                    
-                    <Button
-                      variant="outline"
-                      className="w-full mt-4"
-                      onClick={handleReloadImage}
-                    >
-                      <RotateCcw size={18} className="mr-1" />
-                      Reset Image
-                    </Button>
-                  </TabsContent>
-                </Tabs>
+    <div className="container mx-auto py-8">
+      <div className="flex flex-col space-y-4">
+        <h1 className="text-2xl font-bold mb-4">Image Editor</h1>
+        
+        <div className="flex flex-col md:flex-row gap-6">
+          <div className="w-full md:w-3/4 bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
+            <div className="p-4 border-b">
+              <div className="flex flex-wrap gap-2">
+                <Button onClick={() => fileInputRef.current?.click()} size="sm" variant="outline">
+                  <ImageIcon className="h-4 w-4 mr-2" />
+                  Upload Image
+                </Button>
+                <input 
+                  type="file" 
+                  ref={fileInputRef}
+                  onChange={handleImageUpload}
+                  accept="image/*"
+                  className="hidden"
+                />
                 
-                <div className="mt-6">
-                  <Button
-                    className="w-full bg-green-600 hover:bg-green-700"
-                    onClick={handleDownload}
-                  >
-                    <Save size={18} className="mr-2" />
-                    Save Image
-                  </Button>
-                </div>
-              </Card>
+                <Button onClick={drawMode} size="sm" variant="outline">
+                  <Brush className="h-4 w-4 mr-2" />
+                  Draw
+                </Button>
+                
+                <Button onClick={addText} size="sm" variant="outline">
+                  <Type className="h-4 w-4 mr-2" />
+                  Add Text
+                </Button>
+                
+                <Button onClick={addRectangle} size="sm" variant="outline">
+                  <Square className="h-4 w-4 mr-2" />
+                  Rectangle
+                </Button>
+                
+                <Button onClick={addCircle} size="sm" variant="outline">
+                  <Circle className="h-4 w-4 mr-2" />
+                  Circle
+                </Button>
+                
+                <Button onClick={duplicateSelectedObject} size="sm" variant="outline">
+                  <Copy className="h-4 w-4 mr-2" />
+                  Duplicate
+                </Button>
+                
+                <Button onClick={deleteSelectedObject} size="sm" variant="outline" className="bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30">
+                  <Trash2 className="h-4 w-4 mr-2 text-red-500" />
+                  Delete
+                </Button>
+                
+                <Button onClick={undo} size="sm" variant="outline" disabled={undoStack.length <= 1}>
+                  <Undo className="h-4 w-4 mr-2" />
+                  Undo
+                </Button>
+                
+                <Button onClick={redo} size="sm" variant="outline" disabled={redoStack.length === 0}>
+                  <Redo className="h-4 w-4 mr-2" />
+                  Redo
+                </Button>
+                
+                <Button onClick={downloadImage} size="sm" variant="outline" disabled={!hasImage}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Download
+                </Button>
+              </div>
             </div>
             
-            <div className="lg:col-span-3">
-              <Card className="p-4 bg-white dark:bg-gray-800 shadow-md rounded-xl">
-                <div className="w-full overflow-auto">
-                  <div className="min-h-[600px] flex items-center justify-center">
-                    {isLoading ? (
-                      <Loader2 className="w-12 h-12 text-gray-400 animate-spin" />
-                    ) : (
-                      <canvas
-                        ref={canvasRef}
-                        className="border border-gray-200 dark:border-gray-700 max-w-full"
-                      />
-                    )}
-                  </div>
-                </div>
-              </Card>
+            <div className="flex justify-center items-center p-4 h-[600px] overflow-auto bg-gray-100 dark:bg-gray-900">
+              <canvas ref={canvasRef} />
             </div>
           </div>
-        )}
+          
+          <div className="w-full md:w-1/4">
+            <Tabs defaultValue="adjust">
+              <TabsList className="w-full">
+                <TabsTrigger value="adjust" className="flex-1">
+                  <Sliders className="h-4 w-4 mr-2" />
+                  Adjust
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="adjust" className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="brightness">
+                        <Sun className="h-4 w-4 inline mr-2" />
+                        Brightness: {brightness}%
+                      </Label>
+                    </div>
+                    <Slider
+                      id="brightness"
+                      min={0}
+                      max={200}
+                      step={1}
+                      value={[brightness]}
+                      onValueChange={(value) => setBrightness(value[0])}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="contrast">Contrast: {contrast}%</Label>
+                    </div>
+                    <Slider
+                      id="contrast"
+                      min={0}
+                      max={200}
+                      step={1}
+                      value={[contrast]}
+                      onValueChange={(value) => setContrast(value[0])}
+                    />
+                  </div>
+                  
+                  <Separator />
+                  
+                  <Button onClick={applyFilters} className="w-full" disabled={!hasImage}>
+                    Apply Filters
+                  </Button>
+                </div>
+              </TabsContent>
+            </Tabs>
+          </div>
+        </div>
       </div>
     </div>
   );
