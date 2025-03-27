@@ -13,7 +13,16 @@ import {
   FileStack, 
   Mic, 
   VolumeX, 
-  Edit3 
+  Edit3,
+  Video,
+  Scissors,
+  Volume2,
+  Music,
+  BarChart,
+  FileVideo,
+  Languages,
+  Code,
+  Hash
 } from 'lucide-react';
 
 interface Tool {
@@ -22,10 +31,11 @@ interface Tool {
   name: string;
   description: string;
   path: string;
-  category: 'image' | 'audio' | 'text' | 'converter';
+  category: 'image' | 'audio' | 'text' | 'converter' | 'video';
 }
 
 const tools: Tool[] = [
+  // Image tools
   {
     id: 'bg-remover',
     icon: <Crop size={24} />,
@@ -50,6 +60,8 @@ const tools: Tool[] = [
     path: '/image/converter',
     category: 'converter',
   },
+  
+  // Text tools
   {
     id: 'text-to-speech',
     icon: <MessageSquare size={24} />,
@@ -74,6 +86,8 @@ const tools: Tool[] = [
     path: '/text/pdf-tools',
     category: 'text',
   },
+  
+  // Audio tools
   {
     id: 'audio-recorder',
     icon: <Mic size={24} />,
@@ -89,7 +103,67 @@ const tools: Tool[] = [
     description: 'Convert audio files between MP3, WAV, OGG formats',
     path: '/audio/converter',
     category: 'audio',
-  }
+  },
+  {
+    id: 'voice-changer',
+    icon: <Volume2 size={24} />,
+    name: 'Voice Changer',
+    description: 'Apply fun effects to transform your voice',
+    path: '/audio/voice-changer',
+    category: 'audio',
+  },
+  
+  // Video tools
+  {
+    id: 'video-editor',
+    icon: <Video size={24} />,
+    name: 'Video Editor',
+    description: 'Trim, cut, and enhance your video content',
+    path: '/video/editor',
+    category: 'video',
+  },
+  
+  // Additional tools - these would be implemented in future
+  {
+    id: 'ai-image-generator',
+    icon: <ImageIcon size={24} />,
+    name: 'AI Image Generator',
+    description: 'Create original images using AI models',
+    path: '/image/ai-generator',
+    category: 'image',
+  },
+  {
+    id: 'audio-enhancer',
+    icon: <Music size={24} />,
+    name: 'Audio Enhancer',
+    description: 'Improve audio quality by reducing noise and enhancing clarity',
+    path: '/audio/enhancer',
+    category: 'audio',
+  },
+  {
+    id: 'subtitle-generator',
+    icon: <FileText size={24} />,
+    name: 'Subtitle Generator',
+    description: 'Automatically generate subtitles for video content',
+    path: '/video/subtitle-generator',
+    category: 'video',
+  },
+  {
+    id: 'code-formatter',
+    icon: <Code size={24} />,
+    name: 'Code Formatter',
+    description: 'Format and beautify code in various programming languages',
+    path: '/text/code-formatter',
+    category: 'text',
+  },
+  {
+    id: 'language-translator',
+    icon: <Languages size={24} />,
+    name: 'Language Translator',
+    description: 'Translate text between multiple languages',
+    path: '/text/translator',
+    category: 'text',
+  },
 ];
 
 interface ToolsGridProps {

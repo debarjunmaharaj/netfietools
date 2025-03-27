@@ -33,6 +33,14 @@ export const Header: React.FC = () => {
             Image Tools
           </Link>
           <Link 
+            to="/video" 
+            className={cn(
+              "text-sm font-medium transition-colors hover:text-primary"
+            )}
+          >
+            Video Tools
+          </Link>
+          <Link 
             to="/audio" 
             className={cn(
               "text-sm font-medium transition-colors hover:text-primary"

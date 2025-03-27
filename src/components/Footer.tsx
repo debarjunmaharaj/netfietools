@@ -6,8 +6,8 @@ export const Footer: React.FC = () => {
   return (
     <footer className="bg-white dark:bg-gray-900 border-t border-border">
       <div className="container mx-auto px-6 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-          <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
+          <div className="space-y-4 md:col-span-1">
             <Link to="/" className="flex items-center space-x-2">
               <img 
                 src="https://netfie.com/wp-content/uploads/2025/03/Netfie__1_-removebg-preview-450x174.png.webp" 
@@ -45,6 +45,19 @@ export const Footer: React.FC = () => {
           
           <div>
             <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-900 dark:text-white mb-4">
+              Video Tools
+            </h3>
+            <ul className="space-y-2">
+              <li>
+                <Link to="/video/editor" className="text-gray-600 dark:text-gray-400 hover:text-primary transition-colors text-sm">
+                  Video Editor
+                </Link>
+              </li>
+            </ul>
+          </div>
+          
+          <div>
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-900 dark:text-white mb-4">
               Audio Tools
             </h3>
             <ul className="space-y-2">
@@ -59,6 +72,11 @@ export const Footer: React.FC = () => {
                 </Link>
               </li>
               <li>
+                <Link to="/audio/voice-changer" className="text-gray-600 dark:text-gray-400 hover:text-primary transition-colors text-sm">
+                  Voice Changer
+                </Link>
+              </li>
+              <li>
                 <Link to="/text/text-to-speech" className="text-gray-600 dark:text-gray-400 hover:text-primary transition-colors text-sm">
                   Text to Speech
                 </Link>
@@ -68,9 +86,19 @@ export const Footer: React.FC = () => {
           
           <div>
             <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-900 dark:text-white mb-4">
-              Contact
+              Text Tools & Info
             </h3>
             <ul className="space-y-2">
+              <li>
+                <Link to="/text/summarizer" className="text-gray-600 dark:text-gray-400 hover:text-primary transition-colors text-sm">
+                  Text Summarizer
+                </Link>
+              </li>
+              <li>
+                <Link to="/text/pdf-tools" className="text-gray-600 dark:text-gray-400 hover:text-primary transition-colors text-sm">
+                  PDF Tools
+                </Link>
+              </li>
               <li>
                 <Link to="/contact" className="text-gray-600 dark:text-gray-400 hover:text-primary transition-colors text-sm">
                   Contact Us
