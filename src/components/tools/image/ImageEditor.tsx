@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -14,7 +15,8 @@ import {
   Move, Pencil, Square, Circle as CircleIcon, Triangle as TriangleIcon, 
   Heart, Star, ArrowRight, ArrowLeft, ArrowUp, ArrowDown,
   MessageCircle, Type, Image, Eraser, Trash2, Download, Undo, Redo,
-  SlidersHorizontal, Copy, Scissors, RotateCw, Layers, Palette, Plus, Minus
+  SlidersHorizontal, Copy, Scissors, RotateCw, Layers, Palette, Plus, Minus,
+  Info, Save, Share, FileImage, Crop, FlipHorizontal, FlipVertical, Eye
 } from 'lucide-react';
 import { ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -22,6 +24,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { removeBackground, loadImage } from '@/utils/imageUtils';
+import { Checkbox } from '@/components/ui/checkbox';
 
 export const ImageEditor: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -312,26 +315,24 @@ export const ImageEditor: React.FC = () => {
     reader.onload = function(ev) {
       const imgData = ev.target?.result as string;
       
-      FabricImage.fromURL(imgData, {
-        onload: (img) => {
-          const maxDimension = 500;
-          if (img.width && img.height) {
-            if (img.width > maxDimension || img.height > maxDimension) {
-              const scale = maxDimension / Math.max(img.width, img.height);
-              img.scale(scale);
-            }
+      FabricImage.fromURL(imgData, (img) => {
+        const maxDimension = 500;
+        if (img.width && img.height) {
+          if (img.width > maxDimension || img.height > maxDimension) {
+            const scale = maxDimension / Math.max(img.width, img.height);
+            img.scale(scale);
           }
-          fabricCanvas.add(img);
-          fabricCanvas.setActiveObject(img);
-          fabricCanvas.centerObject(img);
-          saveToUndoStack();
-          fabricCanvas.renderAll();
-          setImageUploaded(true);
-          toast({
-            title: "Image added",
-            description: "The image has been added to the canvas.",
-          });
         }
+        fabricCanvas.add(img);
+        fabricCanvas.setActiveObject(img);
+        fabricCanvas.centerObject(img);
+        saveToUndoStack();
+        fabricCanvas.renderAll();
+        setImageUploaded(true);
+        toast({
+          title: "Image added",
+          description: "The image has been added to the canvas.",
+        });
       });
     };
     reader.readAsDataURL(file);
@@ -352,26 +353,24 @@ export const ImageEditor: React.FC = () => {
       const processedBlob = await removeBackground(image);
       const url = URL.createObjectURL(processedBlob);
       
-      FabricImage.fromURL(url, {
-        onload: (img) => {
-          const maxDimension = 500;
-          if (img.width && img.height) {
-            if (img.width > maxDimension || img.height > maxDimension) {
-              const scale = maxDimension / Math.max(img.width, img.height);
-              img.scale(scale);
-            }
+      FabricImage.fromURL(url, (img) => {
+        const maxDimension = 500;
+        if (img.width && img.height) {
+          if (img.width > maxDimension || img.height > maxDimension) {
+            const scale = maxDimension / Math.max(img.width, img.height);
+            img.scale(scale);
           }
-          fabricCanvas.add(img);
-          fabricCanvas.setActiveObject(img);
-          fabricCanvas.centerObject(img);
-          saveToUndoStack();
-          fabricCanvas.renderAll();
-          setImageUploaded(true);
-          toast({
-            title: "Background removed",
-            description: "The image has been added to the canvas with the background removed.",
-          });
         }
+        fabricCanvas.add(img);
+        fabricCanvas.setActiveObject(img);
+        fabricCanvas.centerObject(img);
+        saveToUndoStack();
+        fabricCanvas.renderAll();
+        setImageUploaded(true);
+        toast({
+          title: "Background removed",
+          description: "The image has been added to the canvas with the background removed.",
+        });
       });
     } catch (error) {
       console.error('Error removing background:', error);
@@ -444,7 +443,7 @@ export const ImageEditor: React.FC = () => {
       return;
     }
     
-    activeObject.clone().then((clonedObj: any) => {
+    activeObject.clone((clonedObj: any) => {
       fabricCanvas.discardActiveObject();
       
       if (clonedObj.left !== undefined && clonedObj.top !== undefined) {
@@ -537,13 +536,17 @@ export const ImageEditor: React.FC = () => {
         break;
       case 'draw':
         fabricCanvas.isDrawingMode = true;
-        fabricCanvas.freeDrawingBrush.color = fillColor;
-        fabricCanvas.freeDrawingBrush.width = strokeWidth;
+        if (fabricCanvas.freeDrawingBrush) {
+          fabricCanvas.freeDrawingBrush.color = fillColor;
+          fabricCanvas.freeDrawingBrush.width = strokeWidth;
+        }
         break;
       case 'erase':
         fabricCanvas.isDrawingMode = true;
-        fabricCanvas.freeDrawingBrush.color = '#ffffff';
-        fabricCanvas.freeDrawingBrush.width = strokeWidth * 2;
+        if (fabricCanvas.freeDrawingBrush) {
+          fabricCanvas.freeDrawingBrush.color = '#ffffff';
+          fabricCanvas.freeDrawingBrush.width = strokeWidth * 2;
+        }
         break;
       default:
         break;
@@ -581,261 +584,307 @@ export const ImageEditor: React.FC = () => {
   }, [fillColor, strokeColor, strokeWidth, opacity, fontSize, fontFamily, fontWeight, fontStyle, textAlign]);
 
   const renderToolbar = () => (
-    <div className="flex flex-col space-y-4">
-      <div className="grid grid-cols-3 gap-2">
-        <Button 
-          variant={activeTool === 'select' ? "default" : "outline"} 
-          onClick={() => setActiveTool('select')}
-          className="flex flex-col items-center p-2"
-          size="sm"
-        >
-          <Move size={16} />
-          <span className="text-xs mt-1">Select</span>
-        </Button>
-        
-        <Button 
-          variant={activeTool === 'draw' ? "default" : "outline"} 
-          onClick={() => setActiveTool('draw')}
-          className="flex flex-col items-center p-2"
-          size="sm"
-        >
-          <Pencil size={16} />
-          <span className="text-xs mt-1">Draw</span>
-        </Button>
-        
-        <Button 
-          variant={activeTool === 'erase' ? "default" : "outline"} 
-          onClick={() => setActiveTool('erase')}
-          className="flex flex-col items-center p-2"
-          size="sm"
-        >
-          <Eraser size={16} />
-          <span className="text-xs mt-1">Erase</span>
-        </Button>
+    <div className="flex flex-col space-y-5">
+      <div className="space-y-2">
+        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Tools</h3>
+        <div className="grid grid-cols-3 gap-2">
+          <Button 
+            variant={activeTool === 'select' ? "default" : "outline"} 
+            onClick={() => setActiveTool('select')}
+            className={`flex flex-col items-center justify-center p-2 h-20 rounded-lg transition-all duration-200 ${activeTool === 'select' ? 'bg-primary shadow-md' : 'hover:bg-primary/10'}`}
+            size="sm"
+          >
+            <Move size={18} className="mb-1" />
+            <span className="text-xs font-medium">Select</span>
+          </Button>
+          
+          <Button 
+            variant={activeTool === 'draw' ? "default" : "outline"} 
+            onClick={() => setActiveTool('draw')}
+            className={`flex flex-col items-center justify-center p-2 h-20 rounded-lg transition-all duration-200 ${activeTool === 'draw' ? 'bg-primary shadow-md' : 'hover:bg-primary/10'}`}
+            size="sm"
+          >
+            <Pencil size={18} className="mb-1" />
+            <span className="text-xs font-medium">Draw</span>
+          </Button>
+          
+          <Button 
+            variant={activeTool === 'erase' ? "default" : "outline"} 
+            onClick={() => setActiveTool('erase')}
+            className={`flex flex-col items-center justify-center p-2 h-20 rounded-lg transition-all duration-200 ${activeTool === 'erase' ? 'bg-primary shadow-md' : 'hover:bg-primary/10'}`}
+            size="sm"
+          >
+            <Eraser size={18} className="mb-1" />
+            <span className="text-xs font-medium">Erase</span>
+          </Button>
+        </div>
       </div>
       
-      <div className="border-t pt-4">
-        <h3 className="font-medium mb-2">Shapes</h3>
+      <div className="space-y-2">
+        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Basic Shapes</h3>
         <div className="grid grid-cols-3 gap-2">
           <Button 
             variant="outline" 
             onClick={addRectangle}
-            className="flex flex-col items-center p-2"
+            className="flex flex-col items-center justify-center p-2 h-20 rounded-lg transition-all hover:bg-primary/10 border-dashed"
             size="sm"
           >
-            <Square size={16} />
-            <span className="text-xs mt-1">Rectangle</span>
+            <Square size={18} className="mb-1" />
+            <span className="text-xs font-medium">Rectangle</span>
           </Button>
           
           <Button 
             variant="outline" 
             onClick={addCircle}
-            className="flex flex-col items-center p-2"
+            className="flex flex-col items-center justify-center p-2 h-20 rounded-lg transition-all hover:bg-primary/10 border-dashed"
             size="sm"
           >
-            <CircleIcon size={16} />
-            <span className="text-xs mt-1">Circle</span>
+            <CircleIcon size={18} className="mb-1" />
+            <span className="text-xs font-medium">Circle</span>
           </Button>
           
           <Button 
             variant="outline" 
             onClick={addTriangle}
-            className="flex flex-col items-center p-2"
+            className="flex flex-col items-center justify-center p-2 h-20 rounded-lg transition-all hover:bg-primary/10 border-dashed"
             size="sm"
           >
-            <TriangleIcon size={16} />
-            <span className="text-xs mt-1">Triangle</span>
+            <TriangleIcon size={18} className="mb-1" />
+            <span className="text-xs font-medium">Triangle</span>
           </Button>
-          
+        </div>
+      </div>
+      
+      <div className="space-y-2">
+        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Elements</h3>
+        <div className="grid grid-cols-3 gap-2">
           <Button 
             variant="outline" 
             onClick={addHeart}
-            className="flex flex-col items-center p-2"
+            className="flex flex-col items-center justify-center p-2 h-20 rounded-lg transition-all hover:bg-primary/10 border-dashed"
             size="sm"
           >
-            <Heart size={16} />
-            <span className="text-xs mt-1">Heart</span>
+            <Heart size={18} className="mb-1" />
+            <span className="text-xs font-medium">Heart</span>
           </Button>
           
           <Button 
             variant="outline" 
             onClick={addStar}
-            className="flex flex-col items-center p-2"
+            className="flex flex-col items-center justify-center p-2 h-20 rounded-lg transition-all hover:bg-primary/10 border-dashed"
             size="sm"
           >
-            <Star size={16} />
-            <span className="text-xs mt-1">Star</span>
-          </Button>
-        </div>
-      </div>
-      
-      <div className="border-t pt-4">
-        <h3 className="font-medium mb-2">Arrows</h3>
-        <div className="grid grid-cols-3 gap-2">
-          <Button 
-            variant="outline" 
-            onClick={addArrowRight}
-            className="flex flex-col items-center p-2"
-            size="sm"
-          >
-            <ArrowRight size={16} />
-            <span className="text-xs mt-1">Right</span>
+            <Star size={18} className="mb-1" />
+            <span className="text-xs font-medium">Star</span>
           </Button>
           
-          <Button 
-            variant="outline" 
-            onClick={addArrowLeft}
-            className="flex flex-col items-center p-2"
-            size="sm"
-          >
-            <ArrowLeft size={16} />
-            <span className="text-xs mt-1">Left</span>
-          </Button>
-          
-          <Button 
-            variant="outline" 
-            onClick={addArrowUp}
-            className="flex flex-col items-center p-2"
-            size="sm"
-          >
-            <ArrowUp size={16} />
-            <span className="text-xs mt-1">Up</span>
-          </Button>
-          
-          <Button 
-            variant="outline" 
-            onClick={addArrowDown}
-            className="flex flex-col items-center p-2"
-            size="sm"
-          >
-            <ArrowDown size={16} />
-            <span className="text-xs mt-1">Down</span>
-          </Button>
-        </div>
-      </div>
-      
-      <div className="border-t pt-4">
-        <h3 className="font-medium mb-2">Elements</h3>
-        <div className="grid grid-cols-3 gap-2">
           <Button 
             variant="outline" 
             onClick={addSpeechBubble}
-            className="flex flex-col items-center p-2"
+            className="flex flex-col items-center justify-center p-2 h-20 rounded-lg transition-all hover:bg-primary/10 border-dashed"
             size="sm"
           >
-            <MessageCircle size={16} />
-            <span className="text-xs mt-1">Speech</span>
+            <MessageCircle size={18} className="mb-1" />
+            <span className="text-xs font-medium">Speech</span>
           </Button>
           
           <Button 
             variant="outline" 
             onClick={addText}
-            className="flex flex-col items-center p-2"
+            className="flex flex-col items-center justify-center p-2 h-20 rounded-lg transition-all hover:bg-primary/10 border-dashed"
             size="sm"
           >
-            <Type size={16} />
-            <span className="text-xs mt-1">Text</span>
+            <Type size={18} className="mb-1" />
+            <span className="text-xs font-medium">Text</span>
           </Button>
           
           <Button 
             variant="outline" 
             onClick={triggerFileInput}
-            className="flex flex-col items-center p-2"
+            className="flex flex-col items-center justify-center p-2 h-20 rounded-lg transition-all hover:bg-primary/10 border-dashed"
             size="sm"
           >
-            <Image size={16} />
-            <span className="text-xs mt-1">Image</span>
+            <Image size={18} className="mb-1" />
+            <span className="text-xs font-medium">Image</span>
           </Button>
         </div>
       </div>
       
-      <div className="border-t pt-4">
-        <h3 className="font-medium mb-2">Advanced</h3>
+      <div className="space-y-2">
+        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Arrows</h3>
+        <div className="grid grid-cols-4 gap-2">
+          <Button 
+            variant="outline" 
+            onClick={addArrowRight}
+            className="flex flex-col items-center justify-center p-2 h-16 rounded-lg transition-all hover:bg-primary/10 border-dashed"
+            size="sm"
+          >
+            <ArrowRight size={16} className="mb-1" />
+            <span className="text-xs font-medium">Right</span>
+          </Button>
+          
+          <Button 
+            variant="outline" 
+            onClick={addArrowLeft}
+            className="flex flex-col items-center justify-center p-2 h-16 rounded-lg transition-all hover:bg-primary/10 border-dashed"
+            size="sm"
+          >
+            <ArrowLeft size={16} className="mb-1" />
+            <span className="text-xs font-medium">Left</span>
+          </Button>
+          
+          <Button 
+            variant="outline" 
+            onClick={addArrowUp}
+            className="flex flex-col items-center justify-center p-2 h-16 rounded-lg transition-all hover:bg-primary/10 border-dashed"
+            size="sm"
+          >
+            <ArrowUp size={16} className="mb-1" />
+            <span className="text-xs font-medium">Up</span>
+          </Button>
+          
+          <Button 
+            variant="outline" 
+            onClick={addArrowDown}
+            className="flex flex-col items-center justify-center p-2 h-16 rounded-lg transition-all hover:bg-primary/10 border-dashed"
+            size="sm"
+          >
+            <ArrowDown size={16} className="mb-1" />
+            <span className="text-xs font-medium">Down</span>
+          </Button>
+        </div>
+      </div>
+      
+      <div className="space-y-2">
+        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Advanced</h3>
         <Button 
           variant="outline" 
           onClick={triggerBgRemoverInput}
-          className="flex items-center justify-center gap-2 w-full"
+          className="flex items-center justify-center gap-2 w-full h-12 bg-gradient-to-r from-primary/20 to-accent/20 hover:from-primary/30 hover:to-accent/30 transition-all border border-primary/20 rounded-lg"
           size="sm"
           disabled={isProcessing}
         >
-          <Scissors size={16} />
-          <span className="text-sm">Remove Background</span>
+          <Scissors size={16} className="text-primary" />
+          <span className="text-sm font-medium">Remove Background</span>
+          {isProcessing && <span className="animate-spin ml-2">⏳</span>}
         </Button>
       </div>
     </div>
   );
 
   const renderStyles = () => (
-    <div className="flex flex-col space-y-4">
-      <div>
-        <h3 className="font-medium mb-2">Fill</h3>
-        <div className="flex items-center space-x-2">
-          <input 
-            type="color" 
-            value={fillColor} 
-            onChange={(e) => setFillColor(e.target.value)} 
-            className="w-8 h-8 rounded-md cursor-pointer"
-          />
-          <Input 
-            value={fillColor} 
-            onChange={(e) => setFillColor(e.target.value)} 
-            className="w-24"
-          />
-        </div>
-      </div>
-      
-      <div>
-        <h3 className="font-medium mb-2">Stroke</h3>
-        <div className="flex items-center space-x-2">
-          <input 
-            type="color" 
-            value={strokeColor} 
-            onChange={(e) => setStrokeColor(e.target.value)} 
-            className="w-8 h-8 rounded-md cursor-pointer"
-          />
-          <Input 
-            value={strokeColor} 
-            onChange={(e) => setStrokeColor(e.target.value)} 
-            className="w-24"
-          />
-        </div>
-      </div>
-      
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="font-medium">Stroke Width</h3>
-          <span className="text-xs text-gray-500">{strokeWidth}px</span>
-        </div>
-        <Slider 
-          value={[strokeWidth]} 
-          onValueChange={(value) => setStrokeWidth(value[0])} 
-          min={1} 
-          max={50} 
-          step={1}
-        />
-      </div>
-      
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="font-medium">Opacity</h3>
-          <span className="text-xs text-gray-500">{opacity}%</span>
-        </div>
-        <Slider 
-          value={[opacity]} 
-          onValueChange={(value) => setOpacity(value[0])} 
-          min={0} 
-          max={100} 
-          step={1}
-        />
-      </div>
-      
-      <div className="border-t pt-4">
-        <h3 className="font-medium mb-2">Text Settings</h3>
-        <div className="space-y-2">
+    <div className="flex flex-col space-y-5">
+      <div className="space-y-3 bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg">
+        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Colors</h3>
+        <div className="space-y-3">
           <div>
-            <Label htmlFor="font-family">Font Family</Label>
+            <Label htmlFor="fill-color" className="text-xs font-medium mb-1.5 flex items-center">
+              <div className="w-3 h-3 bg-primary/80 rounded-sm mr-1.5"></div>
+              Fill Color
+            </Label>
+            <div className="flex items-center space-x-2">
+              <div className="relative">
+                <input 
+                  id="fill-color"
+                  type="color" 
+                  value={fillColor} 
+                  onChange={(e) => setFillColor(e.target.value)} 
+                  className="w-8 h-8 rounded cursor-pointer opacity-0 absolute inset-0 z-10"
+                />
+                <div className="w-8 h-8 rounded border border-gray-200 dark:border-gray-700" style={{backgroundColor: fillColor}}></div>
+              </div>
+              <Input 
+                value={fillColor} 
+                onChange={(e) => setFillColor(e.target.value)} 
+                className="w-24 h-8 text-xs"
+              />
+            </div>
+          </div>
+          
+          <div>
+            <Label htmlFor="stroke-color" className="text-xs font-medium mb-1.5 flex items-center">
+              <div className="w-3 h-3 border border-primary/80 rounded-sm mr-1.5"></div>
+              Stroke Color
+            </Label>
+            <div className="flex items-center space-x-2">
+              <div className="relative">
+                <input 
+                  id="stroke-color"
+                  type="color" 
+                  value={strokeColor} 
+                  onChange={(e) => setStrokeColor(e.target.value)} 
+                  className="w-8 h-8 rounded cursor-pointer opacity-0 absolute inset-0 z-10"
+                />
+                <div className="w-8 h-8 rounded border border-gray-200 dark:border-gray-700" style={{backgroundColor: strokeColor}}></div>
+              </div>
+              <Input 
+                value={strokeColor} 
+                onChange={(e) => setStrokeColor(e.target.value)} 
+                className="w-24 h-8 text-xs"
+              />
+            </div>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-5 gap-1.5 mt-2">
+          {['#000000', '#FFFFFF', '#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#00FFFF', '#FF00FF', '#C0C0C0', '#808080']
+            .map(color => (
+            <button 
+              key={color} 
+              className="w-full h-6 rounded border border-gray-200 dark:border-gray-700 hover:scale-110 transition-transform"
+              style={{ backgroundColor: color }}
+              onClick={() => setFillColor(color)}
+              aria-label={`Set color to ${color}`}
+            />
+          ))}
+        </div>
+      </div>
+      
+      <div className="space-y-3">
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <Label htmlFor="stroke-width" className="text-xs font-medium">Stroke Width</Label>
+            <span className="text-xs text-gray-500">{strokeWidth}px</span>
+          </div>
+          <Slider 
+            id="stroke-width"
+            value={[strokeWidth]} 
+            onValueChange={(value) => setStrokeWidth(value[0])} 
+            min={1} 
+            max={50} 
+            step={1}
+            className="py-1"
+          />
+        </div>
+        
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <Label htmlFor="opacity-slider" className="text-xs font-medium">Opacity</Label>
+            <span className="text-xs text-gray-500">{opacity}%</span>
+          </div>
+          <Slider 
+            id="opacity-slider"
+            value={[opacity]} 
+            onValueChange={(value) => setOpacity(value[0])} 
+            min={0} 
+            max={100} 
+            step={1}
+            className="py-1"
+          />
+        </div>
+      </div>
+      
+      <div className="space-y-3 bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Text Settings</h3>
+          <Info size={14} className="text-gray-400" />
+        </div>
+        
+        <div className="space-y-2.5">
+          <div>
+            <Label htmlFor="font-family" className="text-xs font-medium mb-1.5">Font Family</Label>
             <Select value={fontFamily} onValueChange={setFontFamily}>
-              <SelectTrigger>
+              <SelectTrigger id="font-family" className="h-8 text-xs">
                 <SelectValue placeholder="Select font" />
               </SelectTrigger>
               <SelectContent>
@@ -854,8 +903,8 @@ export const ImageEditor: React.FC = () => {
           </div>
           
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <Label htmlFor="font-size">Font Size</Label>
+            <div className="flex items-center justify-between mb-1.5">
+              <Label htmlFor="font-size" className="text-xs font-medium">Font Size</Label>
               <span className="text-xs text-gray-500">{fontSize}px</span>
             </div>
             <Slider 
@@ -865,14 +914,15 @@ export const ImageEditor: React.FC = () => {
               min={8} 
               max={100} 
               step={1}
+              className="py-1"
             />
           </div>
           
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <Label htmlFor="font-weight">Weight</Label>
+              <Label htmlFor="font-weight" className="text-xs font-medium mb-1.5">Weight</Label>
               <Select value={fontWeight} onValueChange={setFontWeight}>
-                <SelectTrigger>
+                <SelectTrigger id="font-weight" className="h-8 text-xs">
                   <SelectValue placeholder="Font weight" />
                 </SelectTrigger>
                 <SelectContent>
@@ -883,9 +933,9 @@ export const ImageEditor: React.FC = () => {
             </div>
             
             <div>
-              <Label htmlFor="font-style">Style</Label>
+              <Label htmlFor="font-style" className="text-xs font-medium mb-1.5">Style</Label>
               <Select value={fontStyle} onValueChange={setFontStyle}>
-                <SelectTrigger>
+                <SelectTrigger id="font-style" className="h-8 text-xs">
                   <SelectValue placeholder="Font style" />
                 </SelectTrigger>
                 <SelectContent>
@@ -897,17 +947,33 @@ export const ImageEditor: React.FC = () => {
           </div>
           
           <div>
-            <Label htmlFor="text-align">Text Align</Label>
-            <Select value={textAlign} onValueChange={setTextAlign}>
-              <SelectTrigger>
-                <SelectValue placeholder="Text align" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="left">Left</SelectItem>
-                <SelectItem value="center">Center</SelectItem>
-                <SelectItem value="right">Right</SelectItem>
-              </SelectContent>
-            </Select>
+            <Label htmlFor="text-align" className="text-xs font-medium mb-1.5">Text Align</Label>
+            <div className="flex space-x-1">
+              <Button 
+                variant={textAlign === 'left' ? 'default' : 'outline'} 
+                size="sm" 
+                className="flex-1 h-8"
+                onClick={() => setTextAlign('left')}
+              >
+                <span className="text-xs">Left</span>
+              </Button>
+              <Button 
+                variant={textAlign === 'center' ? 'default' : 'outline'} 
+                size="sm" 
+                className="flex-1 h-8"
+                onClick={() => setTextAlign('center')}
+              >
+                <span className="text-xs">Center</span>
+              </Button>
+              <Button 
+                variant={textAlign === 'right' ? 'default' : 'outline'} 
+                size="sm" 
+                className="flex-1 h-8"
+                onClick={() => setTextAlign('right')}
+              >
+                <span className="text-xs">Right</span>
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -915,51 +981,57 @@ export const ImageEditor: React.FC = () => {
   );
 
   const renderTemplates = () => (
-    <div className="flex flex-col space-y-4">
-      <div>
-        <h3 className="font-medium mb-2">Canvas Size</h3>
+    <div className="flex flex-col space-y-5">
+      <div className="space-y-3 bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg">
+        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Canvas Size</h3>
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <Label htmlFor="canvas-width">Width</Label>
+            <Label htmlFor="canvas-width" className="text-xs font-medium mb-1.5">Width</Label>
             <div className="flex items-center">
               <Input 
                 id="canvas-width"
                 type="number" 
                 value={canvasWidth} 
                 onChange={(e) => setCanvasWidth(parseInt(e.target.value) || 800)} 
-                className="w-full"
+                className="w-full h-8 text-xs"
                 min={100}
                 max={3000}
               />
-              <span className="ml-2 text-sm text-gray-500">px</span>
+              <span className="ml-2 text-xs text-gray-500">px</span>
             </div>
           </div>
           <div>
-            <Label htmlFor="canvas-height">Height</Label>
+            <Label htmlFor="canvas-height" className="text-xs font-medium mb-1.5">Height</Label>
             <div className="flex items-center">
               <Input 
                 id="canvas-height"
                 type="number" 
                 value={canvasHeight} 
                 onChange={(e) => setCanvasHeight(parseInt(e.target.value) || 600)} 
-                className="w-full"
+                className="w-full h-8 text-xs"
                 min={100}
                 max={3000}
               />
-              <span className="ml-2 text-sm text-gray-500">px</span>
+              <span className="ml-2 text-xs text-gray-500">px</span>
             </div>
           </div>
         </div>
-        <Button className="mt-2 w-full" size="sm" onClick={() => {
-          if (fabricCanvas) {
-            fabricCanvas.setDimensions({width: canvasWidth, height: canvasHeight});
-            fabricCanvas.renderAll();
-          }
-        }}>Apply Size</Button>
+        <Button 
+          className="mt-2 w-full h-8 text-xs" 
+          size="sm" 
+          onClick={() => {
+            if (fabricCanvas) {
+              fabricCanvas.setDimensions({width: canvasWidth, height: canvasHeight});
+              fabricCanvas.renderAll();
+            }
+          }}
+        >
+          Apply Size
+        </Button>
       </div>
       
-      <div className="border-t pt-4">
-        <h3 className="font-medium mb-2">Templates</h3>
+      <div className="space-y-3">
+        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Templates</h3>
         <div className="grid grid-cols-2 gap-2">
           <Button 
             variant="outline" 
@@ -971,11 +1043,11 @@ export const ImageEditor: React.FC = () => {
                 fabricCanvas.renderAll();
               }
             }}
-            className="h-auto py-2"
+            className="h-auto py-2 flex flex-col items-start justify-center text-left"
             size="sm"
           >
-            Social Media Post
-            <span className="text-xs block text-gray-500">1200 x 628 px</span>
+            <span className="text-xs font-medium">Social Media Post</span>
+            <span className="text-[10px] text-gray-500">1200 x 628 px</span>
           </Button>
           
           <Button 
@@ -988,11 +1060,11 @@ export const ImageEditor: React.FC = () => {
                 fabricCanvas.renderAll();
               }
             }}
-            className="h-auto py-2"
+            className="h-auto py-2 flex flex-col items-start justify-center text-left"
             size="sm"
           >
-            Instagram Post
-            <span className="text-xs block text-gray-500">800 x 800 px</span>
+            <span className="text-xs font-medium">Instagram Post</span>
+            <span className="text-[10px] text-gray-500">800 x 800 px</span>
           </Button>
           
           <Button 
@@ -1005,11 +1077,11 @@ export const ImageEditor: React.FC = () => {
                 fabricCanvas.renderAll();
               }
             }}
-            className="h-auto py-2"
+            className="h-auto py-2 flex flex-col items-start justify-center text-left"
             size="sm"
           >
-            HD Video Cover
-            <span className="text-xs block text-gray-500">1280 x 720 px</span>
+            <span className="text-xs font-medium">HD Video Cover</span>
+            <span className="text-[10px] text-gray-500">1280 x 720 px</span>
           </Button>
           
           <Button 
@@ -1022,11 +1094,11 @@ export const ImageEditor: React.FC = () => {
                 fabricCanvas.renderAll();
               }
             }}
-            className="h-auto py-2"
+            className="h-auto py-2 flex flex-col items-start justify-center text-left"
             size="sm"
           >
-            Instagram Story
-            <span className="text-xs block text-gray-500">1080 x 1920 px</span>
+            <span className="text-xs font-medium">Instagram Story</span>
+            <span className="text-[10px] text-gray-500">1080 x 1920 px</span>
           </Button>
           
           <Button 
@@ -1039,11 +1111,11 @@ export const ImageEditor: React.FC = () => {
                 fabricCanvas.renderAll();
               }
             }}
-            className="h-auto py-2"
+            className="h-auto py-2 flex flex-col items-start justify-center text-left"
             size="sm"
           >
-            Website Banner
-            <span className="text-xs block text-gray-500">1500 x 500 px</span>
+            <span className="text-xs font-medium">Website Banner</span>
+            <span className="text-[10px] text-gray-500">1500 x 500 px</span>
           </Button>
           
           <Button 
@@ -1056,22 +1128,22 @@ export const ImageEditor: React.FC = () => {
                 fabricCanvas.renderAll();
               }
             }}
-            className="h-auto py-2"
+            className="h-auto py-2 flex flex-col items-start justify-center text-left"
             size="sm"
           >
-            NFT Artwork
-            <span className="text-xs block text-gray-500">1024 x 1024 px</span>
+            <span className="text-xs font-medium">NFT Artwork</span>
+            <span className="text-[10px] text-gray-500">1024 x 1024 px</span>
           </Button>
         </div>
       </div>
       
-      <div className="border-t pt-4">
-        <h3 className="font-medium mb-2">Background Colors</h3>
-        <div className="grid grid-cols-4 gap-2">
-          {['#ffffff', '#000000', '#f8f9fa', '#e9ecef', '#dee2e6', '#ced4da', '#4361ee', '#4cc9f0', '#4895ef', '#560bad', '#f72585', '#b5179e'].map((color) => (
+      <div className="space-y-3">
+        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Background Colors</h3>
+        <div className="grid grid-cols-5 gap-2">
+          {['#ffffff', '#000000', '#f8f9fa', '#e9ecef', '#dee2e6', '#ced4da', '#4361ee', '#4cc9f0', '#4895ef', '#560bad', '#f72585', '#b5179e', '#3a0ca3', '#4cc9f0', '#4361ee'].map((color) => (
             <button
               key={color}
-              className="w-full h-8 rounded border border-gray-300"
+              className="w-full h-8 rounded-md border border-gray-300 hover:scale-110 transition-transform shadow-sm"
               style={{ backgroundColor: color }}
               onClick={() => {
                 if (fabricCanvas) {
@@ -1083,296 +1155,398 @@ export const ImageEditor: React.FC = () => {
             />
           ))}
         </div>
+        
+        <div className="p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
+          <div className="text-xs font-medium mb-2 text-gray-700 dark:text-gray-300">Background Gradients</div>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              className="w-full h-12 rounded-md border border-gray-300 hover:scale-105 transition-transform shadow-sm"
+              style={{ background: 'linear-gradient(45deg, #ff9a9e 0%, #fad0c4 99%, #fad0c4 100%)' }}
+              onClick={() => {
+                if (fabricCanvas) {
+                  // Apply a gradient background
+                  const gradient = new (window as any).fabric.Gradient({
+                    type: 'linear',
+                    coords: { x1: 0, y1: 0, x2: canvasWidth, y2: canvasHeight },
+                    colorStops: [
+                      { offset: 0, color: '#ff9a9e' },
+                      { offset: 1, color: '#fad0c4' }
+                    ]
+                  });
+                  fabricCanvas.setBackgroundColor(gradient, fabricCanvas.renderAll.bind(fabricCanvas));
+                }
+              }}
+              aria-label="Set gradient background"
+            />
+            <button
+              className="w-full h-12 rounded-md border border-gray-300 hover:scale-105 transition-transform shadow-sm"
+              style={{ background: 'linear-gradient(120deg, #84fab0 0%, #8fd3f4 100%)' }}
+              onClick={() => {
+                if (fabricCanvas) {
+                  // Apply a gradient background
+                  const gradient = new (window as any).fabric.Gradient({
+                    type: 'linear',
+                    coords: { x1: 0, y1: 0, x2: canvasWidth, y2: canvasHeight },
+                    colorStops: [
+                      { offset: 0, color: '#84fab0' },
+                      { offset: 1, color: '#8fd3f4' }
+                    ]
+                  });
+                  fabricCanvas.setBackgroundColor(gradient, fabricCanvas.renderAll.bind(fabricCanvas));
+                }
+              }}
+              aria-label="Set gradient background"
+            />
+          </div>
+        </div>
       </div>
     </div>
   );
 
   return (
     <div className="container mx-auto px-4 py-6">
-      <div className="text-center mb-6">
-        <h1 className="text-3xl font-bold mb-2 gradient-text">Image Editor</h1>
-        <p className="text-gray-600 dark:text-gray-400">
-          Edit your image with professional Photoshop-like tools
+      <div className="text-center mb-8">
+        <h1 className="text-3xl font-bold mb-2 bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">Professional Image Editor</h1>
+        <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
+          Create professional-grade designs with our advanced editing tools. Perfect for social media, marketing materials, and digital art.
         </p>
       </div>
       
-      <ResizablePanelGroup direction="horizontal" className="min-h-[600px] rounded-lg border">
-        <ResizablePanel defaultSize={20} minSize={15} maxSize={30} className="bg-white dark:bg-gray-800">
-          <div className="p-3 h-full">
-            <Tabs defaultValue="tools" value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid grid-cols-3 mb-4">
-                <TabsTrigger value="tools">Tools</TabsTrigger>
-                <TabsTrigger value="styles">Styles</TabsTrigger>
-                <TabsTrigger value="templates">Templates</TabsTrigger>
-              </TabsList>
-              
-              <ScrollArea className="h-[calc(100vh-220px)]">
-                <TabsContent value="tools" className="mt-0">
-                  {renderToolbar()}
-                </TabsContent>
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <ResizablePanelGroup direction="horizontal" className="min-h-[700px]">
+          <ResizablePanel defaultSize={20} minSize={15} maxSize={30} className="bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700">
+            <div className="p-4 h-full bg-gradient-to-b from-white to-gray-50 dark:from-gray-800 dark:to-gray-900">
+              <Tabs defaultValue="tools" value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
+                <TabsList className="grid grid-cols-3 mb-4">
+                  <TabsTrigger value="tools" className="text-xs">Tools</TabsTrigger>
+                  <TabsTrigger value="styles" className="text-xs">Styles</TabsTrigger>
+                  <TabsTrigger value="templates" className="text-xs">Templates</TabsTrigger>
+                </TabsList>
                 
-                <TabsContent value="styles" className="mt-0">
-                  {renderStyles()}
-                </TabsContent>
-                
-                <TabsContent value="templates" className="mt-0">
-                  {renderTemplates()}
-                </TabsContent>
-              </ScrollArea>
-            </Tabs>
-          </div>
-        </ResizablePanel>
-        
-        <ResizablePanel defaultSize={60}>
-          <div className="relative h-full flex flex-col bg-gray-100 dark:bg-gray-900">
-            <div className="p-2 bg-white dark:bg-gray-800 border-b flex items-center justify-between">
-              <div className="flex items-center space-x-1">
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={handleUndo} 
-                  disabled={undoStack.length === 0}
-                  title="Undo"
-                >
-                  <Undo size={18} />
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={handleRedo} 
-                  disabled={redoStack.length === 0}
-                  title="Redo"
-                >
-                  <Redo size={18} />
-                </Button>
-                <div className="h-6 w-px bg-gray-200 dark:bg-gray-700 mx-1" />
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={cloneSelected}
-                  title="Duplicate"
-                >
-                  <Copy size={18} />
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={deleteSelected}
-                  title="Delete"
-                >
-                  <Trash2 size={18} />
-                </Button>
-              </div>
-              
-              <div className="flex items-center">
-                <div className="mr-2 flex items-center space-x-1">
+                <ScrollArea className="flex-grow pr-3">
+                  <TabsContent value="tools" className="mt-0 h-full">
+                    {renderToolbar()}
+                  </TabsContent>
+                  
+                  <TabsContent value="styles" className="mt-0 h-full">
+                    {renderStyles()}
+                  </TabsContent>
+                  
+                  <TabsContent value="templates" className="mt-0 h-full">
+                    {renderTemplates()}
+                  </TabsContent>
+                </ScrollArea>
+              </Tabs>
+            </div>
+          </ResizablePanel>
+          
+          <ResizablePanel defaultSize={60}>
+            <div className="relative h-full flex flex-col bg-gray-100 dark:bg-gray-900">
+              <div className="p-2 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                <div className="flex items-center space-x-1">
                   <Button 
                     variant="ghost" 
                     size="icon" 
-                    onClick={() => {
-                      if (fabricCanvas && zoom < 400) {
-                        const newZoom = zoom + 25;
-                        setZoom(newZoom);
-                        fabricCanvas.setZoom(newZoom / 100);
-                        fabricCanvas.renderAll();
-                      }
-                    }}
-                    title="Zoom In"
+                    onClick={handleUndo} 
+                    disabled={undoStack.length === 0}
+                    title="Undo"
+                    className="h-8 w-8 rounded-md text-gray-600 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-700"
                   >
-                    <Plus size={18} />
+                    <Undo size={16} />
                   </Button>
-                  <span className="text-sm">{zoom}%</span>
                   <Button 
                     variant="ghost" 
                     size="icon" 
-                    onClick={() => {
-                      if (fabricCanvas && zoom > 25) {
-                        const newZoom = zoom - 25;
-                        setZoom(newZoom);
-                        fabricCanvas.setZoom(newZoom / 100);
-                        fabricCanvas.renderAll();
-                      }
-                    }}
-                    title="Zoom Out"
+                    onClick={handleRedo} 
+                    disabled={redoStack.length === 0}
+                    title="Redo"
+                    className="h-8 w-8 rounded-md text-gray-600 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-700"
                   >
-                    <Minus size={18} />
+                    <Redo size={16} />
+                  </Button>
+                  <div className="h-5 w-px bg-gray-200 dark:bg-gray-700 mx-1" />
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={cloneSelected}
+                    title="Duplicate"
+                    className="h-8 w-8 rounded-md text-gray-600 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
+                    <Copy size={16} />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={deleteSelected}
+                    title="Delete"
+                    className="h-8 w-8 rounded-md text-gray-600 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
+                    <Trash2 size={16} />
                   </Button>
                 </div>
                 
-                <Button 
-                  variant="destructive" 
-                  size="sm" 
-                  onClick={clearCanvas}
-                >
-                  Clear
-                </Button>
-                <Button 
-                  variant="default" 
-                  size="sm" 
-                  className="ml-2" 
-                  onClick={downloadImage}
-                >
-                  <Download size={16} className="mr-1" />
-                  Download
-                </Button>
-              </div>
-            </div>
-            
-            <div className="flex-1 overflow-auto p-4 flex items-center justify-center">
-              <div className="shadow-lg rounded-sm bg-white">
-                <canvas ref={canvasRef}></canvas>
-              </div>
-            </div>
-            
-            <input
-              type="file"
-              ref={fileInputRef}
-              className="hidden"
-              accept="image/*"
-              onChange={handleFileChange}
-            />
-            <input
-              type="file"
-              ref={bgRemoverInputRef}
-              className="hidden"
-              accept="image/*"
-              onChange={handleBgRemovalFileChange}
-            />
-          </div>
-        </ResizablePanel>
-        
-        <ResizablePanel defaultSize={20} minSize={15} maxSize={30} className="bg-white dark:bg-gray-800">
-          <div className="p-3 h-full flex flex-col">
-            <div className="mb-2">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="font-medium">Properties</h3>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={() => setShowProperties(!showProperties)}
-                  className="h-6 w-6"
-                >
-                  {showProperties ? (
-                    <ChevronDown size={14} />
-                  ) : (
-                    <ChevronRight size={14} />
-                  )}
-                </Button>
-              </div>
-              
-              {showProperties && (
-                <div className="space-y-2">
-                  <div>
-                    <Label>Position</Label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="flex items-center">
-                        <span className="text-xs mr-1">X:</span>
-                        <Input type="number" placeholder="X" className="h-8" />
-                      </div>
-                      <div className="flex items-center">
-                        <span className="text-xs mr-1">Y:</span>
-                        <Input type="number" placeholder="Y" className="h-8" />
-                      </div>
-                    </div>
+                <div className="flex items-center">
+                  <div className="mr-2 flex items-center px-2 py-1 bg-gray-50 dark:bg-gray-700 rounded-md">
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={() => {
+                        if (fabricCanvas && zoom < 400) {
+                          const newZoom = zoom + 25;
+                          setZoom(newZoom);
+                          fabricCanvas.setZoom(newZoom / 100);
+                          fabricCanvas.renderAll();
+                        }
+                      }}
+                      title="Zoom In"
+                      className="h-6 w-6 rounded-md text-gray-600 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-700"
+                    >
+                      <Plus size={14} />
+                    </Button>
+                    <span className="text-xs font-medium mx-1.5">{zoom}%</span>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={() => {
+                        if (fabricCanvas && zoom > 25) {
+                          const newZoom = zoom - 25;
+                          setZoom(newZoom);
+                          fabricCanvas.setZoom(newZoom / 100);
+                          fabricCanvas.renderAll();
+                        }
+                      }}
+                      title="Zoom Out"
+                      className="h-6 w-6 rounded-md text-gray-600 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-700"
+                    >
+                      <Minus size={14} />
+                    </Button>
                   </div>
                   
-                  <div>
-                    <Label>Size</Label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="flex items-center">
-                        <span className="text-xs mr-1">W:</span>
-                        <Input type="number" placeholder="Width" className="h-8" />
-                      </div>
-                      <div className="flex items-center">
-                        <span className="text-xs mr-1">H:</span>
-                        <Input type="number" placeholder="Height" className="h-8" />
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <Label>Rotation</Label>
-                    <div className="flex items-center">
-                      <Input type="number" placeholder="0°" className="h-8" />
-                      <span className="ml-1 text-xs">°</span>
-                    </div>
-                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={clearCanvas}
+                    className="h-8 text-xs font-medium mr-1.5 border-red-200 text-red-500 hover:text-red-600 hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-900/30"
+                  >
+                    <Trash2 size={14} className="mr-1" />
+                    Clear
+                  </Button>
+                  <Button 
+                    variant="default" 
+                    size="sm" 
+                    className="h-8 text-xs font-medium" 
+                    onClick={downloadImage}
+                  >
+                    <Download size={14} className="mr-1" />
+                    Download
+                  </Button>
                 </div>
-              )}
-            </div>
-            
-            <div className="border-t pt-3 mt-2 flex-1">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="font-medium">Layers</h3>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={() => setShowLayers(!showLayers)}
-                  className="h-6 w-6"
-                >
-                  {showLayers ? (
-                    <ChevronDown size={14} />
-                  ) : (
-                    <ChevronRight size={14} />
-                  )}
-                </Button>
               </div>
               
-              {showLayers && (
-                <div className="border rounded-md h-[calc(100%-30px)] overflow-auto">
-                  {layers.length === 0 ? (
-                    <div className="p-2 text-center text-gray-500 text-sm">
-                      No objects on canvas
+              <div className="flex-1 overflow-auto p-4 flex items-center justify-center bg-[url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAMUlEQVQ4T2NkYGAQYcAP3uCTZhw1gGGYhAGBZIA/nYDCgBDAm9BGDWAAJyRCgLaBCAAgXwixzAS0pgAAAABJRU5ErkJggg==')] bg-neutral-100 dark:bg-neutral-900">
+                <div className="shadow-xl rounded-md bg-white">
+                  <canvas ref={canvasRef}></canvas>
+                </div>
+              </div>
+              
+              <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                accept="image/*"
+                onChange={handleFileChange}
+              />
+              <input
+                type="file"
+                ref={bgRemoverInputRef}
+                className="hidden"
+                accept="image/*"
+                onChange={handleBgRemovalFileChange}
+              />
+            </div>
+          </ResizablePanel>
+          
+          <ResizablePanel defaultSize={20} minSize={15} maxSize={30} className="bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700">
+            <div className="p-4 h-full flex flex-col bg-gradient-to-b from-white to-gray-50 dark:from-gray-800 dark:to-gray-900">
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-2">
+                  <button
+                    onClick={() => setShowProperties(!showProperties)}
+                    className="flex items-center text-sm font-semibold text-gray-800 dark:text-gray-200 hover:text-primary transition-colors"
+                  >
+                    <SlidersHorizontal size={16} className="mr-1.5" />
+                    Properties
+                    {showProperties ? (
+                      <ChevronDown size={16} className="ml-1" />
+                    ) : (
+                      <ChevronRight size={16} className="ml-1" />
+                    )}
+                  </button>
+                </div>
+                
+                {showProperties && (
+                  <div className="space-y-3 p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+                    <div>
+                      <Label className="text-xs font-medium mb-1.5">Position</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="flex items-center">
+                          <span className="text-xs mr-1 w-3">X:</span>
+                          <Input type="number" placeholder="X" className="h-7 text-xs" />
+                        </div>
+                        <div className="flex items-center">
+                          <span className="text-xs mr-1 w-3">Y:</span>
+                          <Input type="number" placeholder="Y" className="h-7 text-xs" />
+                        </div>
+                      </div>
                     </div>
-                  ) : (
-                    <div className="p-1">
-                      {layers.map((obj, index) => {
-                        let name = "Object";
-                        if (obj instanceof Rect) name = "Rectangle";
-                        else if (obj instanceof Circle) name = "Circle";
-                        else if (obj instanceof Triangle) name = "Triangle";
-                        else if (obj instanceof Text) name = `Text: "${(obj as Text).text?.substring(0, 10)}${(obj as Text).text && (obj as Text).text.length > 10 ? '...' : ''}"`;
-                        else if (obj instanceof Path) name = "Shape";
-                        else if (obj instanceof FabricImage) name = "Image";
+                    
+                    <div>
+                      <Label className="text-xs font-medium mb-1.5">Size</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="flex items-center">
+                          <span className="text-xs mr-1 w-3">W:</span>
+                          <Input type="number" placeholder="Width" className="h-7 text-xs" />
+                        </div>
+                        <div className="flex items-center">
+                          <span className="text-xs mr-1 w-3">H:</span>
+                          <Input type="number" placeholder="Height" className="h-7 text-xs" />
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <Label className="text-xs font-medium mb-1.5">Rotation</Label>
+                      <div className="flex items-center space-x-2">
+                        <Input type="number" placeholder="0°" className="h-7 text-xs" />
+                        <Button variant="outline" size="sm" className="h-7 w-7 p-0">
+                          <RotateCw size={14} />
+                        </Button>
+                        <Button variant="outline" size="sm" className="h-7 w-7 p-0">
+                          <FlipHorizontal size={14} />
+                        </Button>
+                        <Button variant="outline" size="sm" className="h-7 w-7 p-0">
+                          <FlipVertical size={14} />
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center space-x-2">
+                      <div className="flex items-center space-x-2 text-xs">
+                        <Checkbox id="lock-ratio" />
+                        <label htmlFor="lock-ratio" className="text-xs font-medium">Lock ratio</label>
+                      </div>
+                      <div className="flex items-center space-x-2 text-xs">
+                        <Checkbox id="show-grid" />
+                        <label htmlFor="show-grid" className="text-xs font-medium">Show grid</label>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              <div className="flex-1">
+                <div className="flex items-center justify-between mb-2">
+                  <button
+                    onClick={() => setShowLayers(!showLayers)}
+                    className="flex items-center text-sm font-semibold text-gray-800 dark:text-gray-200 hover:text-primary transition-colors"
+                  >
+                    <Layers size={16} className="mr-1.5" />
+                    Layers
+                    {showLayers ? (
+                      <ChevronDown size={16} className="ml-1" />
+                    ) : (
+                      <ChevronRight size={16} className="ml-1" />
+                    )}
+                  </button>
+                </div>
+                
+                {showLayers && (
+                  <div className="border border-gray-200 dark:border-gray-700 rounded-lg h-[calc(100%-30px)] bg-white dark:bg-gray-800 shadow-sm">
+                    <div className="p-2 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between bg-gray-50 dark:bg-gray-800/80 rounded-t-lg">
+                      <span className="text-xs font-medium">Layer Name</span>
+                      <span className="text-xs font-medium">Visibility</span>
+                    </div>
+                    <ScrollArea className="h-[calc(100%-36px)]">
+                      {layers.length === 0 ? (
+                        <div className="p-4 text-center text-gray-500 text-xs">
+                          <FileImage size={24} className="mx-auto mb-2 text-gray-400" />
+                          No objects on canvas
+                          <p className="mt-1 text-[10px] text-gray-400">Add shapes, text, or images to see them here</p>
+                        </div>
+                      ) : (
+                        <div className="p-1">
+                          {layers.map((obj, index) => {
+                            let name = "Object";
+                            if (obj instanceof Rect) name = "Rectangle";
+                            else if (obj instanceof Circle) name = "Circle";
+                            else if (obj instanceof Triangle) name = "Triangle";
+                            else if (obj instanceof Text) name = `Text: "${(obj as Text).text?.substring(0, 10)}${(obj as Text).text && (obj as Text).text.length > 10 ? '...' : ''}"`;
+                            else if (obj instanceof Path) name = "Shape";
+                            else if (obj instanceof FabricImage) name = "Image";
 
-                        return (
-                          <div 
-                            key={index} 
-                            className="flex items-center justify-between p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded cursor-pointer"
-                            onClick={() => {
-                              if (fabricCanvas) {
-                                fabricCanvas.setActiveObject(obj);
-                                fabricCanvas.renderAll();
-                              }
-                            }}
-                          >
-                            <span className="text-sm truncate">{name}</span>
-                            <Button 
-                              variant="ghost" 
-                              size="icon"
-                              className="h-6 w-6"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (fabricCanvas) {
-                                  fabricCanvas.remove(obj);
-                                  fabricCanvas.renderAll();
-                                  updateLayers();
-                                }
-                              }}
-                            >
-                              <Trash2 size={12} />
-                            </Button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
+                            return (
+                              <div 
+                                key={index} 
+                                className="flex items-center justify-between p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded cursor-pointer border-b border-gray-100 dark:border-gray-700/50"
+                                onClick={() => {
+                                  if (fabricCanvas) {
+                                    fabricCanvas.setActiveObject(obj);
+                                    fabricCanvas.renderAll();
+                                  }
+                                }}
+                              >
+                                <div className="flex items-center">
+                                  <div className="w-2 h-2 rounded-full bg-primary mr-2"></div>
+                                  <span className="text-xs truncate max-w-[120px]">{name}</span>
+                                </div>
+                                <div className="flex items-center">
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon"
+                                    className="h-6 w-6 text-gray-500 hover:text-gray-700"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (obj.visible) {
+                                        obj.set('visible', false);
+                                      } else {
+                                        obj.set('visible', true);
+                                      }
+                                      if (fabricCanvas) {
+                                        fabricCanvas.renderAll();
+                                      }
+                                    }}
+                                  >
+                                    <Eye size={14} className={obj.visible === false ? "text-gray-400" : "text-gray-700"} />
+                                  </Button>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon"
+                                    className="h-6 w-6 text-gray-500 hover:text-red-500"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (fabricCanvas) {
+                                        fabricCanvas.remove(obj);
+                                        fabricCanvas.renderAll();
+                                        updateLayers();
+                                      }
+                                    }}
+                                  >
+                                    <Trash2 size={14} />
+                                  </Button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </ScrollArea>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        </ResizablePanel>
-      </ResizablePanelGroup>
+          </ResizablePanel>
+        </ResizablePanelGroup>
+      </div>
     </div>
   );
 };
