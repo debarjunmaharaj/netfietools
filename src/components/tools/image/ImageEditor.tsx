@@ -8,8 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
 import { 
-  Canvas, Rect, Circle, Triangle, IEvent, Path, Point, Group, 
-  FabricObject, util, Text, Image as FabricImage, loadSVGFromURL
+  Canvas, Rect, Circle, Triangle, Path, Group, Text, 
+  Image as FabricImage, loadSVGFromURL, Object as FabricObject
 } from 'fabric';
 import { 
   Move, Pencil, Square, Circle as CircleIcon, Triangle as TriangleIcon, 
@@ -21,6 +21,8 @@ import { ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ChevronDown, ChevronRight } from 'lucide-react';
+import { removeBackground, loadImage } from '@/utils/imageUtils';
 
 export const ImageEditor: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -45,9 +47,12 @@ export const ImageEditor: React.FC = () => {
   const [canvasHeight, setCanvasHeight] = useState<number>(600);
   const [zoom, setZoom] = useState<number>(100);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const bgRemoverInputRef = useRef<HTMLInputElement>(null);
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [layers, setLayers] = useState<FabricObject[]>([]);
   const { toast } = useToast();
 
-  // Define the shape and template functions first so they can be used in the JSX
+  // Shape functions
   const addRectangle = () => {
     if (!fabricCanvas) return;
     const rect = new Rect({
@@ -64,6 +69,7 @@ export const ImageEditor: React.FC = () => {
     fabricCanvas.setActiveObject(rect);
     saveToUndoStack();
     fabricCanvas.renderAll();
+    updateLayers();
   };
 
   const addCircle = () => {
@@ -81,6 +87,7 @@ export const ImageEditor: React.FC = () => {
     fabricCanvas.setActiveObject(circle);
     saveToUndoStack();
     fabricCanvas.renderAll();
+    updateLayers();
   };
 
   const addTriangle = () => {
@@ -99,6 +106,7 @@ export const ImageEditor: React.FC = () => {
     fabricCanvas.setActiveObject(triangle);
     saveToUndoStack();
     fabricCanvas.renderAll();
+    updateLayers();
   };
 
   const addHeart = () => {
@@ -117,6 +125,7 @@ export const ImageEditor: React.FC = () => {
     fabricCanvas.setActiveObject(heart);
     saveToUndoStack();
     fabricCanvas.renderAll();
+    updateLayers();
   };
 
   const addStar = () => {
@@ -135,6 +144,7 @@ export const ImageEditor: React.FC = () => {
     fabricCanvas.setActiveObject(star);
     saveToUndoStack();
     fabricCanvas.renderAll();
+    updateLayers();
   };
 
   const addArrowRight = () => {
@@ -153,6 +163,7 @@ export const ImageEditor: React.FC = () => {
     fabricCanvas.setActiveObject(arrow);
     saveToUndoStack();
     fabricCanvas.renderAll();
+    updateLayers();
   };
 
   const addArrowLeft = () => {
@@ -171,6 +182,7 @@ export const ImageEditor: React.FC = () => {
     fabricCanvas.setActiveObject(arrow);
     saveToUndoStack();
     fabricCanvas.renderAll();
+    updateLayers();
   };
 
   const addArrowUp = () => {
@@ -189,6 +201,7 @@ export const ImageEditor: React.FC = () => {
     fabricCanvas.setActiveObject(arrow);
     saveToUndoStack();
     fabricCanvas.renderAll();
+    updateLayers();
   };
 
   const addArrowDown = () => {
@@ -207,6 +220,7 @@ export const ImageEditor: React.FC = () => {
     fabricCanvas.setActiveObject(arrow);
     saveToUndoStack();
     fabricCanvas.renderAll();
+    updateLayers();
   };
 
   const addSpeechBubble = () => {
@@ -225,9 +239,10 @@ export const ImageEditor: React.FC = () => {
     fabricCanvas.setActiveObject(speechBubble);
     saveToUndoStack();
     fabricCanvas.renderAll();
+    updateLayers();
   };
 
-  // Tool functions
+  // Text function
   const addText = () => {
     if (!fabricCanvas) return;
     const text = new Text('Double click to edit', {
@@ -236,8 +251,8 @@ export const ImageEditor: React.FC = () => {
       fill: fillColor,
       fontFamily: fontFamily,
       fontSize: fontSize,
-      fontWeight: fontWeight,
-      fontStyle: fontStyle,
+      fontWeight: fontWeight as any,
+      fontStyle: fontStyle as any,
       textAlign: textAlign as any,
       stroke: strokeColor,
       strokeWidth: strokeWidth / 10,
@@ -247,13 +262,23 @@ export const ImageEditor: React.FC = () => {
     fabricCanvas.setActiveObject(text);
     saveToUndoStack();
     fabricCanvas.renderAll();
+    updateLayers();
   };
 
+  // Update the layers panel list
+  const updateLayers = () => {
+    if (!fabricCanvas) return;
+    const objects = fabricCanvas.getObjects();
+    setLayers([...objects]);
+  };
+
+  // State management functions
   const saveToUndoStack = () => {
     if (!fabricCanvas) return;
     const json = fabricCanvas.toJSON();
     setUndoStack(prev => [...prev, json]);
     setRedoStack([]);
+    updateLayers();
   };
 
   const handleUndo = () => {
@@ -264,7 +289,10 @@ export const ImageEditor: React.FC = () => {
     const previousState = undoStack[undoStack.length - 1];
     setUndoStack(prev => prev.slice(0, -1));
     
-    fabricCanvas.loadFromJSON(previousState, fabricCanvas.renderAll.bind(fabricCanvas));
+    fabricCanvas.loadFromJSON(previousState, () => {
+      fabricCanvas.renderAll();
+      updateLayers();
+    });
   };
 
   const handleRedo = () => {
@@ -275,9 +303,13 @@ export const ImageEditor: React.FC = () => {
     const nextState = redoStack[redoStack.length - 1];
     setRedoStack(prev => prev.slice(0, -1));
     
-    fabricCanvas.loadFromJSON(nextState, fabricCanvas.renderAll.bind(fabricCanvas));
+    fabricCanvas.loadFromJSON(nextState, () => {
+      fabricCanvas.renderAll();
+      updateLayers();
+    });
   };
 
+  // File handling functions
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !fabricCanvas) return;
@@ -309,8 +341,60 @@ export const ImageEditor: React.FC = () => {
     reader.readAsDataURL(file);
   };
 
+  // Background removal feature
+  const handleBgRemovalFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !fabricCanvas) return;
+    
+    setIsProcessing(true);
+    toast({
+      title: "Processing image",
+      description: "Removing background... This may take a moment.",
+    });
+    
+    try {
+      const image = await loadImage(file);
+      const processedBlob = await removeBackground(image);
+      const url = URL.createObjectURL(processedBlob);
+      
+      FabricImage.fromURL(url, (img) => {
+        // Scale down large images
+        const maxDimension = 500;
+        if (img.width && img.height) {
+          if (img.width > maxDimension || img.height > maxDimension) {
+            const scale = maxDimension / Math.max(img.width, img.height);
+            img.scale(scale);
+          }
+        }
+        fabricCanvas.add(img);
+        fabricCanvas.setActiveObject(img);
+        fabricCanvas.centerObject(img);
+        saveToUndoStack();
+        fabricCanvas.renderAll();
+        setImageUploaded(true);
+        toast({
+          title: "Background removed",
+          description: "The image has been added to the canvas with the background removed.",
+        });
+      });
+    } catch (error) {
+      console.error('Error removing background:', error);
+      toast({
+        title: "Error",
+        description: "Failed to remove background. Please try again with a different image.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const triggerFileInput = () => {
     fileInputRef.current?.click();
+  };
+
+  const triggerBgRemoverInput = () => {
+    bgRemoverInputRef.current?.click();
   };
 
   const clearCanvas = () => {
@@ -320,8 +404,10 @@ export const ImageEditor: React.FC = () => {
     if (confirm('Are you sure you want to clear the canvas? This action cannot be undone.')) {
       saveToUndoStack();
       fabricCanvas.clear();
-      fabricCanvas.setBackgroundColor('#ffffff', fabricCanvas.renderAll.bind(fabricCanvas));
+      fabricCanvas.backgroundColor = '#ffffff';
+      fabricCanvas.renderAll();
       setImageUploaded(false);
+      setLayers([]);
       toast({
         title: "Canvas cleared",
         description: "The canvas has been cleared.",
@@ -334,6 +420,7 @@ export const ImageEditor: React.FC = () => {
     
     const dataURL = fabricCanvas.toDataURL({
       format: 'png',
+      multiplier: 1,
       quality: 1,
     });
     
@@ -362,29 +449,29 @@ export const ImageEditor: React.FC = () => {
       return;
     }
     
-    // Clone the object(s)
-    activeObject.clone((cloned: FabricObject) => {
+    // Clone the object
+    activeObject.clone((clonedObj: any) => {
       fabricCanvas.discardActiveObject();
       
-      if (cloned.left && cloned.top) {
+      if (clonedObj.left !== undefined && clonedObj.top !== undefined) {
         // Offset the clone slightly so it's visible
-        cloned.set({
-          left: cloned.left + 10,
-          top: cloned.top + 10,
+        clonedObj.set({
+          left: clonedObj.left + 10,
+          top: clonedObj.top + 10,
         });
       }
       
-      if ((cloned as any).forEachObject) {
+      if (clonedObj.forEachObject) {
         // If it's a group/multiple selection
-        (cloned as any).forEachObject((object: FabricObject) => {
-          fabricCanvas.add(object);
+        clonedObj.forEachObject(function(obj: any) {
+          fabricCanvas.add(obj);
         });
       } else {
         // Single object
-        fabricCanvas.add(cloned);
+        fabricCanvas.add(clonedObj);
       }
       
-      fabricCanvas.setActiveObject(cloned);
+      fabricCanvas.setActiveObject(clonedObj);
       fabricCanvas.renderAll();
       saveToUndoStack();
     });
@@ -405,6 +492,7 @@ export const ImageEditor: React.FC = () => {
     saveToUndoStack();
     fabricCanvas.remove(activeObject);
     fabricCanvas.renderAll();
+    updateLayers();
     toast({
       title: "Object deleted",
       description: "The selected object has been deleted.",
@@ -424,6 +512,14 @@ export const ImageEditor: React.FC = () => {
     setFabricCanvas(canvas);
     
     // Set up event listeners
+    canvas.on('object:added', () => {
+      updateLayers();
+    });
+    
+    canvas.on('object:removed', () => {
+      updateLayers();
+    });
+    
     canvas.on('mouse:up', () => {
       if (activeTool === 'draw' || activeTool === 'erase') {
         saveToUndoStack();
@@ -673,6 +769,20 @@ export const ImageEditor: React.FC = () => {
           </Button>
         </div>
       </div>
+      
+      <div className="border-t pt-4">
+        <h3 className="font-medium mb-2">Advanced</h3>
+        <Button 
+          variant="outline" 
+          onClick={triggerBgRemoverInput}
+          className="flex items-center justify-center gap-2 w-full"
+          size="sm"
+          disabled={isProcessing}
+        >
+          <Scissors size={16} />
+          <span className="text-sm">Remove Background</span>
+        </Button>
+      </div>
     </div>
   );
 
@@ -756,6 +866,10 @@ export const ImageEditor: React.FC = () => {
                 <SelectItem value="Georgia">Georgia</SelectItem>
                 <SelectItem value="Verdana">Verdana</SelectItem>
                 <SelectItem value="Impact">Impact</SelectItem>
+                <SelectItem value="Comic Sans MS">Comic Sans MS</SelectItem>
+                <SelectItem value="Tahoma">Tahoma</SelectItem>
+                <SelectItem value="Trebuchet MS">Trebuchet MS</SelectItem>
+                <SelectItem value="Lucida Sans">Lucida Sans</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -935,6 +1049,60 @@ export const ImageEditor: React.FC = () => {
             Instagram Story
             <span className="text-xs block text-gray-500">1080 x 1920 px</span>
           </Button>
+          
+          <Button 
+            variant="outline" 
+            onClick={() => {
+              setCanvasWidth(1500);
+              setCanvasHeight(500);
+              if (fabricCanvas) {
+                fabricCanvas.setDimensions({width: 1500, height: 500});
+                fabricCanvas.renderAll();
+              }
+            }}
+            className="h-auto py-2"
+            size="sm"
+          >
+            Website Banner
+            <span className="text-xs block text-gray-500">1500 x 500 px</span>
+          </Button>
+          
+          <Button 
+            variant="outline" 
+            onClick={() => {
+              setCanvasWidth(1024);
+              setCanvasHeight(1024);
+              if (fabricCanvas) {
+                fabricCanvas.setDimensions({width: 1024, height: 1024});
+                fabricCanvas.renderAll();
+              }
+            }}
+            className="h-auto py-2"
+            size="sm"
+          >
+            NFT Artwork
+            <span className="text-xs block text-gray-500">1024 x 1024 px</span>
+          </Button>
+        </div>
+      </div>
+      
+      <div className="border-t pt-4">
+        <h3 className="font-medium mb-2">Background Colors</h3>
+        <div className="grid grid-cols-4 gap-2">
+          {['#ffffff', '#000000', '#f8f9fa', '#e9ecef', '#dee2e6', '#ced4da', '#4361ee', '#4cc9f0', '#4895ef', '#560bad', '#f72585', '#b5179e'].map((color) => (
+            <button
+              key={color}
+              className="w-full h-8 rounded border border-gray-300"
+              style={{ backgroundColor: color }}
+              onClick={() => {
+                if (fabricCanvas) {
+                  fabricCanvas.backgroundColor = color;
+                  fabricCanvas.renderAll();
+                }
+              }}
+              aria-label={`Set background to ${color}`}
+            />
+          ))}
         </div>
       </div>
     </div>
@@ -1081,13 +1249,20 @@ export const ImageEditor: React.FC = () => {
               </div>
             </div>
             
-            {/* Hidden file input */}
+            {/* Hidden file inputs */}
             <input
               type="file"
               ref={fileInputRef}
               className="hidden"
               accept="image/*"
               onChange={handleFileChange}
+            />
+            <input
+              type="file"
+              ref={bgRemoverInputRef}
+              className="hidden"
+              accept="image/*"
+              onChange={handleBgRemovalFileChange}
             />
           </div>
         </ResizablePanel>
@@ -1171,10 +1346,54 @@ export const ImageEditor: React.FC = () => {
               </div>
               
               {showLayers && (
-                <div className="border rounded-md h-[calc(100%-30px)]">
-                  <div className="p-2 text-center text-gray-500 text-sm">
-                    Object layers will appear here
-                  </div>
+                <div className="border rounded-md h-[calc(100%-30px)] overflow-auto">
+                  {layers.length === 0 ? (
+                    <div className="p-2 text-center text-gray-500 text-sm">
+                      No objects on canvas
+                    </div>
+                  ) : (
+                    <div className="p-1">
+                      {layers.map((obj, index) => {
+                        let name = "Object";
+                        if (obj instanceof Rect) name = "Rectangle";
+                        else if (obj instanceof Circle) name = "Circle";
+                        else if (obj instanceof Triangle) name = "Triangle";
+                        else if (obj instanceof Text) name = `Text: "${(obj as Text).text?.substring(0, 10)}${(obj as Text).text && (obj as Text).text.length > 10 ? '...' : ''}"`;
+                        else if (obj instanceof Path) name = "Shape";
+                        else if (obj instanceof FabricImage) name = "Image";
+
+                        return (
+                          <div 
+                            key={index} 
+                            className="flex items-center justify-between p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded cursor-pointer"
+                            onClick={() => {
+                              if (fabricCanvas) {
+                                fabricCanvas.setActiveObject(obj);
+                                fabricCanvas.renderAll();
+                              }
+                            }}
+                          >
+                            <span className="text-sm truncate">{name}</span>
+                            <Button 
+                              variant="ghost" 
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (fabricCanvas) {
+                                  fabricCanvas.remove(obj);
+                                  fabricCanvas.renderAll();
+                                  updateLayers();
+                                }
+                              }}
+                            >
+                              <Trash2 size={12} />
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1185,5 +1404,3 @@ export const ImageEditor: React.FC = () => {
   );
 };
 
-// Additional import for ChevronDown and ChevronRight
-import { ChevronDown, ChevronRight } from 'lucide-react';
